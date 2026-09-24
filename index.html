@@ -51,6 +51,7 @@
       <button class="tab-btn" data-tab="pva" role="tab" aria-selected="false">PV of Annuity</button>
       <button class="tab-btn" data-tab="loan" role="tab" aria-selected="false">Loan & Amortization</button>
       <button class="tab-btn" data-tab="ci" role="tab" aria-selected="false">Compound Interest</button>
+      <button class="tab-btn" data-tab="scenario" role="tab" aria-selected="false">📊 Scenario Analysis</button>
       <button class="tab-btn" data-tab="history" role="tab" aria-selected="false">Calculation History</button>
       <button class="tab-btn" data-tab="formulas" role="tab" aria-selected="false">Formulas & Guide</button>
     </nav>
@@ -68,6 +69,25 @@
             <p class="card-description">Determines the future accumulated value of a lump-sum amount invested today.</p>
           </div>
 
+          <!-- Month or Year Option Toggle -->
+          <div class="time-unit-control">
+            <span class="time-unit-label">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              Time Unit:
+            </span>
+            <div class="unit-segmented-group" role="radiogroup" aria-label="Time Unit Option">
+              <button type="button" class="unit-pill-btn active" id="btn-fv-unit-year" data-pane="fv" data-unit="year" onclick="setTimeUnit('fv', 'year')">
+                📅 Year (Annual)
+              </button>
+              <button type="button" class="unit-pill-btn" id="btn-fv-unit-month" data-pane="fv" data-unit="month" onclick="setTimeUnit('fv', 'month')">
+                🗓️ Month (Monthly)
+              </button>
+            </div>
+          </div>
+
           <form id="form-fv" onsubmit="event.preventDefault(); calculateFutureValue();">
             <div class="form-group">
               <label for="fv-pv">Present Value (PV):</label>
@@ -80,23 +100,23 @@
             </div>
 
             <div class="form-group">
-              <label for="fv-rate">Interest Rate per Period (r):</label>
+              <label for="fv-rate" id="fv-rate-label">Annual Interest Rate (r):</label>
               <div class="input-addon-wrapper">
                 <input type="number" id="fv-rate" class="form-control" placeholder="e.g. 8" step="any" min="0" required />
                 <span class="input-addon addon-right">%</span>
               </div>
               <span id="fv-rate-error" class="error-msg"></span>
-              <span class="form-hint">Rate per compounding period (e.g. 8 for 8%).</span>
+              <span class="form-hint" id="fv-rate-hint">Annual interest rate (e.g. 8 for 8% per year).</span>
             </div>
 
             <div class="form-group">
-              <label for="fv-periods">Number of Periods (n):</label>
+              <label for="fv-periods" id="fv-periods-label">Time Duration (in Years):</label>
               <div class="input-addon-wrapper">
                 <input type="number" id="fv-periods" class="form-control" placeholder="e.g. 5" step="any" min="0.01" required />
-                <span class="input-addon addon-right">periods</span>
+                <span class="input-addon addon-right" id="fv-periods-addon">Years</span>
               </div>
               <span id="fv-periods-error" class="error-msg"></span>
-              <span class="form-hint">Total number of compounding periods.</span>
+              <span class="form-hint" id="fv-periods-hint">Total duration in years.</span>
             </div>
 
             <div class="form-actions">
@@ -105,8 +125,8 @@
             </div>
 
             <div class="sample-row">
-              <span class="sample-label">Sample Test Case 1:</span>
-              <button type="button" id="btn-sample-fv" class="btn btn-sample">Load (PV=10k, 8%, 5 periods)</button>
+              <span class="sample-label">Sample Data:</span>
+              <button type="button" id="btn-sample-fv" class="btn btn-sample">Load (PV=10k, 8%, 5 Years)</button>
             </div>
           </form>
         </div>
@@ -136,18 +156,18 @@
                 <div id="fv-total-interest" class="breakdown-value">₹0.00</div>
               </div>
               <div class="breakdown-item">
-                <div class="breakdown-label">Periodic Rate</div>
+                <div class="breakdown-label" id="fv-rate-display-label">Interest Rate</div>
                 <div id="fv-rate-display" class="breakdown-value">0.00%</div>
               </div>
               <div class="breakdown-item">
-                <div class="breakdown-label">Total Periods</div>
-                <div id="fv-periods-display" class="breakdown-value">0</div>
+                <div class="breakdown-label">Duration</div>
+                <div id="fv-periods-display" class="breakdown-value">0 Years</div>
               </div>
             </div>
 
             <div class="result-formula-applied">
               <strong>Formula Applied:</strong> <code>FV = PV &times; (1 + r)ⁿ</code><br />
-              Compound growth calculated continuously across specified periods.
+              Compound growth calculated across the specified duration.
             </div>
           </div>
         </div>
@@ -167,6 +187,25 @@
             <p class="card-description">Determines what an expected future sum is worth in today's currency.</p>
           </div>
 
+          <!-- Month or Year Option Toggle -->
+          <div class="time-unit-control">
+            <span class="time-unit-label">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              Time Unit:
+            </span>
+            <div class="unit-segmented-group" role="radiogroup" aria-label="Time Unit Option">
+              <button type="button" class="unit-pill-btn active" id="btn-pv-unit-year" data-pane="pv" data-unit="year" onclick="setTimeUnit('pv', 'year')">
+                📅 Year (Annual)
+              </button>
+              <button type="button" class="unit-pill-btn" id="btn-pv-unit-month" data-pane="pv" data-unit="month" onclick="setTimeUnit('pv', 'month')">
+                🗓️ Month (Monthly)
+              </button>
+            </div>
+          </div>
+
           <form id="form-pv" onsubmit="event.preventDefault(); calculatePresentValue();">
             <div class="form-group">
               <label for="pv-fv">Future Value (FV):</label>
@@ -179,23 +218,23 @@
             </div>
 
             <div class="form-group">
-              <label for="pv-rate">Interest Rate per Period (r):</label>
+              <label for="pv-rate" id="pv-rate-label">Annual Discount Rate (r):</label>
               <div class="input-addon-wrapper">
                 <input type="number" id="pv-rate" class="form-control" placeholder="e.g. 8" step="any" min="0" required />
                 <span class="input-addon addon-right">%</span>
               </div>
               <span id="pv-rate-error" class="error-msg"></span>
-              <span class="form-hint">Discount rate per compounding period.</span>
+              <span class="form-hint" id="pv-rate-hint">Discount rate per year (e.g. 8 for 8% per year).</span>
             </div>
 
             <div class="form-group">
-              <label for="pv-periods">Number of Periods (n):</label>
+              <label for="pv-periods" id="pv-periods-label">Time Duration (in Years):</label>
               <div class="input-addon-wrapper">
                 <input type="number" id="pv-periods" class="form-control" placeholder="e.g. 5" step="any" min="0.01" required />
-                <span class="input-addon addon-right">periods</span>
+                <span class="input-addon addon-right" id="pv-periods-addon">Years</span>
               </div>
               <span id="pv-periods-error" class="error-msg"></span>
-              <span class="form-hint">Number of discounting periods until future date.</span>
+              <span class="form-hint" id="pv-periods-hint">Total duration in years.</span>
             </div>
 
             <div class="form-actions">
@@ -204,8 +243,8 @@
             </div>
 
             <div class="sample-row">
-              <span class="sample-label">Sample Test Case 2:</span>
-              <button type="button" id="btn-sample-pv" class="btn btn-sample">Load (FV=14,693.28, 8%, 5 periods)</button>
+              <span class="sample-label">Sample Data:</span>
+              <button type="button" id="btn-sample-pv" class="btn btn-sample">Load (FV=14,693.28, 8%, 5 Years)</button>
             </div>
           </form>
         </div>
@@ -235,12 +274,12 @@
                 <div id="pv-total-discount" class="breakdown-value">₹0.00</div>
               </div>
               <div class="breakdown-item">
-                <div class="breakdown-label">Periodic Rate</div>
+                <div class="breakdown-label" id="pv-rate-display-label">Discount Rate</div>
                 <div id="pv-rate-display" class="breakdown-value">0.00%</div>
               </div>
               <div class="breakdown-item">
-                <div class="breakdown-label">Total Periods</div>
-                <div id="pv-periods-display" class="breakdown-value">0</div>
+                <div class="breakdown-label">Duration</div>
+                <div id="pv-periods-display" class="breakdown-value">0 Years</div>
               </div>
             </div>
 
@@ -263,38 +302,57 @@
               <span>FV of Ordinary Annuity</span>
               <span class="formula-tag">FV = PMT &times; [((1+r)ⁿ - 1) / r]</span>
             </h2>
-            <p class="card-description">Computes future accumulated sum when making regular equal payments at period end.</p>
+            <p class="card-description">Computes future accumulated sum when making regular equal payments each month or year.</p>
+          </div>
+
+          <!-- Month or Year Option Toggle -->
+          <div class="time-unit-control">
+            <span class="time-unit-label">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              Payment & Time Unit:
+            </span>
+            <div class="unit-segmented-group" role="radiogroup" aria-label="Time Unit Option">
+              <button type="button" class="unit-pill-btn active" id="btn-fva-unit-year" data-pane="fva" data-unit="year" onclick="setTimeUnit('fva', 'year')">
+                📅 Year (Annual)
+              </button>
+              <button type="button" class="unit-pill-btn" id="btn-fva-unit-month" data-pane="fva" data-unit="month" onclick="setTimeUnit('fva', 'month')">
+                🗓️ Month (Monthly)
+              </button>
+            </div>
           </div>
 
           <form id="form-fva" onsubmit="event.preventDefault(); calculateFutureAnnuity();">
             <div class="form-group">
-              <label for="fva-pmt">Periodic Payment (PMT):</label>
+              <label for="fva-pmt" id="fva-pmt-label">Payment per Year (PMT):</label>
               <div class="input-addon-wrapper">
                 <span class="input-addon currency-symbol">₹</span>
                 <input type="number" id="fva-pmt" class="form-control" placeholder="e.g. 1000" step="any" min="0" required />
               </div>
               <span id="fva-pmt-error" class="error-msg"></span>
-              <span class="form-hint">Amount deposited or paid at the end of each period.</span>
+              <span class="form-hint" id="fva-pmt-hint">Amount deposited or paid at the end of each year.</span>
             </div>
 
             <div class="form-group">
-              <label for="fva-rate">Periodic Interest Rate (r):</label>
+              <label for="fva-rate" id="fva-rate-label">Annual Interest Rate (r):</label>
               <div class="input-addon-wrapper">
                 <input type="number" id="fva-rate" class="form-control" placeholder="e.g. 8" step="any" min="0" required />
                 <span class="input-addon addon-right">%</span>
               </div>
               <span id="fva-rate-error" class="error-msg"></span>
-              <span class="form-hint">Interest rate per compounding period (supports r = 0%).</span>
+              <span class="form-hint" id="fva-rate-hint">Annual interest rate (supports r = 0%).</span>
             </div>
 
             <div class="form-group">
-              <label for="fva-periods">Number of Periods (n):</label>
+              <label for="fva-periods" id="fva-periods-label">Time Duration (in Years):</label>
               <div class="input-addon-wrapper">
                 <input type="number" id="fva-periods" class="form-control" placeholder="e.g. 5" step="any" min="0.01" required />
-                <span class="input-addon addon-right">periods</span>
+                <span class="input-addon addon-right" id="fva-periods-addon">Years</span>
               </div>
               <span id="fva-periods-error" class="error-msg"></span>
-              <span class="form-hint">Total number of periodic contributions.</span>
+              <span class="form-hint" id="fva-periods-hint">Total duration in years.</span>
             </div>
 
             <div class="form-actions">
@@ -303,8 +361,8 @@
             </div>
 
             <div class="sample-row">
-              <span class="sample-label">Sample Test Case 3:</span>
-              <button type="button" id="btn-sample-fva" class="btn btn-sample">Load (PMT=1k, 8%, 5 periods)</button>
+              <span class="sample-label">Sample Data:</span>
+              <button type="button" id="btn-sample-fva" class="btn btn-sample">Load (PMT=1k, 8%, 5 Years)</button>
             </div>
           </form>
         </div>
@@ -315,7 +373,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
             </svg>
-            <p>Input periodic deposits to calculate the accumulated annuity value.</p>
+            <p>Input regular deposits to calculate the accumulated annuity value.</p>
           </div>
 
           <div id="fva-result-content" class="result-content">
@@ -334,12 +392,12 @@
                 <div id="fva-total-interest" class="breakdown-value">₹0.00</div>
               </div>
               <div class="breakdown-item">
-                <div class="breakdown-label">Periodic Contribution</div>
+                <div class="breakdown-label" id="fva-pmt-display-label">Payment Amount (PMT)</div>
                 <div id="fva-pmt-display" class="breakdown-value">₹0.00</div>
               </div>
               <div class="breakdown-item">
-                <div class="breakdown-label">Annuity Type</div>
-                <div class="breakdown-value" style="font-size:0.95rem;">Ordinary (End of Period)</div>
+                <div class="breakdown-label">Duration & Timing</div>
+                <div id="fva-duration-display" class="breakdown-value" style="font-size:0.95rem;">5 Years (Yearly)</div>
               </div>
             </div>
 
@@ -362,38 +420,57 @@
               <span>PV of Ordinary Annuity</span>
               <span class="formula-tag">PV = PMT &times; [1 - (1+r)⁻ⁿ] / r</span>
             </h2>
-            <p class="card-description">Computes the present lump-sum worth of a series of future periodic payments.</p>
+            <p class="card-description">Computes the present lump-sum worth of a series of future regular payments each month or year.</p>
+          </div>
+
+          <!-- Month or Year Option Toggle -->
+          <div class="time-unit-control">
+            <span class="time-unit-label">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              Payment & Time Unit:
+            </span>
+            <div class="unit-segmented-group" role="radiogroup" aria-label="Time Unit Option">
+              <button type="button" class="unit-pill-btn active" id="btn-pva-unit-year" data-pane="pva" data-unit="year" onclick="setTimeUnit('pva', 'year')">
+                📅 Year (Annual)
+              </button>
+              <button type="button" class="unit-pill-btn" id="btn-pva-unit-month" data-pane="pva" data-unit="month" onclick="setTimeUnit('pva', 'month')">
+                🗓️ Month (Monthly)
+              </button>
+            </div>
           </div>
 
           <form id="form-pva" onsubmit="event.preventDefault(); calculatePresentAnnuity();">
             <div class="form-group">
-              <label for="pva-pmt">Periodic Payment (PMT):</label>
+              <label for="pva-pmt" id="pva-pmt-label">Payment per Year (PMT):</label>
               <div class="input-addon-wrapper">
                 <span class="input-addon currency-symbol">₹</span>
                 <input type="number" id="pva-pmt" class="form-control" placeholder="e.g. 1000" step="any" min="0" required />
               </div>
               <span id="pva-pmt-error" class="error-msg"></span>
-              <span class="form-hint">Expected cash inflow or payout per period.</span>
+              <span class="form-hint" id="pva-pmt-hint">Expected cash inflow or payout each year.</span>
             </div>
 
             <div class="form-group">
-              <label for="pva-rate">Periodic Interest Rate (r):</label>
+              <label for="pva-rate" id="pva-rate-label">Annual Discount Rate (r):</label>
               <div class="input-addon-wrapper">
                 <input type="number" id="pva-rate" class="form-control" placeholder="e.g. 8" step="any" min="0" required />
                 <span class="input-addon addon-right">%</span>
               </div>
               <span id="pva-rate-error" class="error-msg"></span>
-              <span class="form-hint">Discount rate per period (supports r = 0%).</span>
+              <span class="form-hint" id="pva-rate-hint">Discount rate per year (supports r = 0%).</span>
             </div>
 
             <div class="form-group">
-              <label for="pva-periods">Number of Periods (n):</label>
+              <label for="pva-periods" id="pva-periods-label">Time Duration (in Years):</label>
               <div class="input-addon-wrapper">
                 <input type="number" id="pva-periods" class="form-control" placeholder="e.g. 5" step="any" min="0.01" required />
-                <span class="input-addon addon-right">periods</span>
+                <span class="input-addon addon-right" id="pva-periods-addon">Years</span>
               </div>
               <span id="pva-periods-error" class="error-msg"></span>
-              <span class="form-hint">Number of payments to discount back to present.</span>
+              <span class="form-hint" id="pva-periods-hint">Total duration in years.</span>
             </div>
 
             <div class="form-actions">
@@ -403,7 +480,7 @@
 
             <div class="sample-row">
               <span class="sample-label">Sample Data:</span>
-              <button type="button" id="btn-sample-pva" class="btn btn-sample">Load (PMT=1k, 8%, 5 periods)</button>
+              <button type="button" id="btn-sample-pva" class="btn btn-sample">Load (PMT=1k, 8%, 5 Years)</button>
             </div>
           </form>
         </div>
@@ -425,7 +502,7 @@
 
             <div class="breakdown-grid">
               <div class="breakdown-item">
-                <div class="breakdown-label">Total Cash Inflows (PMT &times; n)</div>
+                <div class="breakdown-label">Total Cash Inflows</div>
                 <div id="pva-total-payments" class="breakdown-value">₹0.00</div>
               </div>
               <div class="breakdown-item">
@@ -433,12 +510,12 @@
                 <div id="pva-total-interest" class="breakdown-value">₹0.00</div>
               </div>
               <div class="breakdown-item">
-                <div class="breakdown-label">Periodic Amount</div>
+                <div class="breakdown-label" id="pva-pmt-display-label">Payment Amount (PMT)</div>
                 <div id="pva-pmt-display" class="breakdown-value">₹0.00</div>
               </div>
               <div class="breakdown-item">
-                <div class="breakdown-label">Annuity Type</div>
-                <div class="breakdown-value" style="font-size:0.95rem;">Ordinary (End of Period)</div>
+                <div class="breakdown-label">Duration & Timing</div>
+                <div id="pva-duration-display" class="breakdown-value" style="font-size:0.95rem;">5 Years (Yearly)</div>
               </div>
             </div>
 
@@ -559,7 +636,7 @@
               Periodic rate <em>r = APR / Frequency / 100</em>, total periods <em>n = Years &times; Frequency</em>.
             </div>
 
-            <div class="result-card-actions" style="margin-top: 1rem;">
+            <div class="result-card-actions" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
               <button type="button" id="btn-download-amort-csv-card" class="btn btn-success" style="font-size: 0.85rem; width: 100%; font-weight: 600;" title="Download Amortization Table in CSV format">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -567,6 +644,9 @@
                   <line x1="12" y1="15" x2="12" y2="3"></line>
                 </svg>
                 <span>Download Schedule (CSV)</span>
+              </button>
+              <button type="button" id="btn-goto-scenario-loan" class="btn btn-secondary" style="font-size: 0.85rem; width: 100%; font-weight: 600;" title="Compare What-If scenarios with this loan data">
+                <span>📊</span> <span>Run Scenario & What-If Analysis</span>
               </button>
             </div>
           </div>
@@ -796,12 +876,265 @@
               <strong>Formula Applied:</strong> <code>A = P &times; (1 + r/m)^(m&times;t)</code><br />
               Compounding interest yields interest on interest over time.
             </div>
+
+            <div class="result-card-actions" style="margin-top: 1rem;">
+              <button type="button" id="btn-goto-scenario-ci" class="btn btn-secondary" style="font-size: 0.85rem; width: 100%; font-weight: 600;" title="Analyze What-If scenarios for this investment">
+                <span>📈</span> <span>Analyze Investment Scenarios</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- TAB 7: Calculation History -->
+    <!-- TAB 7: Scenario Analysis -->
+    <section id="pane-scenario" class="calc-pane" role="tabpanel">
+      <!-- Mode Toggle: Loan vs Investment -->
+      <div class="scenario-mode-wrapper">
+        <div class="scenario-mode-toggle" role="group" aria-label="Scenario Type Toggle">
+          <button type="button" id="btn-scenario-mode-loan" class="mode-btn active">
+            <span>🏠</span>
+            <span>Loan & Mortgage Scenarios</span>
+          </button>
+          <button type="button" id="btn-scenario-mode-invest" class="mode-btn">
+            <span>📈</span>
+            <span>Investment & Growth Scenarios</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Scenario Configuration Card -->
+      <div class="calc-card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <h2>
+            <span id="scenario-title-text">Loan Scenario & What-If Analysis</span>
+            <span class="formula-tag">Multi-Variable Sensitivity</span>
+          </h2>
+          <p class="card-description" id="scenario-desc-text">
+            Compare baseline loan repayments against optimistic rate cuts, stressed rate hikes, term extensions, and accelerated prepayment schedules.
+          </p>
+        </div>
+
+        <form id="form-scenario" onsubmit="event.preventDefault(); runScenarioAnalysis();">
+          <!-- Loan Inputs Grid -->
+          <div id="scenario-loan-inputs" class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem;">
+            <div class="form-group">
+              <label for="sc-loan-amount">Base Principal (Loan Amount):</label>
+              <div class="input-addon-wrapper">
+                <span class="input-addon currency-symbol">₹</span>
+                <input type="number" id="sc-loan-amount" class="form-control" placeholder="e.g. 500000" step="any" min="1" value="500000" required />
+              </div>
+              <span class="form-hint">Baseline loan balance or borrowing amount.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="sc-loan-rate">Base Annual Interest Rate (%):</label>
+              <div class="input-addon-wrapper">
+                <input type="number" id="sc-loan-rate" class="form-control" placeholder="e.g. 8.5" step="any" min="0" value="8.5" required />
+                <span class="input-addon addon-right">%</span>
+              </div>
+              <span class="form-hint">Current annual interest rate.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="sc-loan-term">Base Loan Term (Years):</label>
+              <div class="input-addon-wrapper">
+                <input type="number" id="sc-loan-term" class="form-control" placeholder="e.g. 20" step="any" min="0.1" value="20" required />
+                <span class="input-addon addon-right">Yrs</span>
+              </div>
+              <span class="form-hint">Duration of repayment in years.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="sc-loan-freq">Payment Frequency:</label>
+              <select id="sc-loan-freq" class="form-control">
+                <option value="12" selected>Monthly (12/yr)</option>
+                <option value="4">Quarterly (4/yr)</option>
+                <option value="2">Half-Yearly (2/yr)</option>
+                <option value="1">Yearly (1/yr)</option>
+              </select>
+              <span class="form-hint">Frequency of scheduled payments.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="sc-loan-prepay">Extra Monthly Prepayment:</label>
+              <div class="input-addon-wrapper">
+                <span class="input-addon currency-symbol">₹</span>
+                <input type="number" id="sc-loan-prepay" class="form-control" placeholder="e.g. 5000" step="any" min="0" value="0" />
+              </div>
+              <span class="form-hint">Extra sum applied toward principal each period.</span>
+            </div>
+          </div>
+
+          <!-- Investment Inputs Grid (Hidden when in Loan mode) -->
+          <div id="scenario-invest-inputs" class="form-grid" style="display: none; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem;">
+            <div class="form-group">
+              <label for="sc-inv-principal">Initial Investment (Principal):</label>
+              <div class="input-addon-wrapper">
+                <span class="input-addon currency-symbol">₹</span>
+                <input type="number" id="sc-inv-principal" class="form-control" placeholder="e.g. 100000" step="any" min="0" value="100000" />
+              </div>
+              <span class="form-hint">Starting lump-sum deposit.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="sc-inv-rate">Base Annual Return Rate (%):</label>
+              <div class="input-addon-wrapper">
+                <input type="number" id="sc-inv-rate" class="form-control" placeholder="e.g. 10" step="any" min="0" value="10" />
+                <span class="input-addon addon-right">%</span>
+              </div>
+              <span class="form-hint">Expected annual compound return rate.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="sc-inv-term">Investment Horizon (Years):</label>
+              <div class="input-addon-wrapper">
+                <input type="number" id="sc-inv-term" class="form-control" placeholder="e.g. 15" step="any" min="0.5" value="15" />
+                <span class="input-addon addon-right">Yrs</span>
+              </div>
+              <span class="form-hint">Target accumulation timeframe.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="sc-inv-deposit">Periodic Contribution (PMT):</label>
+              <div class="input-addon-wrapper">
+                <span class="input-addon currency-symbol">₹</span>
+                <input type="number" id="sc-inv-deposit" class="form-control" placeholder="e.g. 5000" step="any" min="0" value="5000" />
+              </div>
+              <span class="form-hint">Regular addition deposited each period.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="sc-inv-freq">Contribution Frequency:</label>
+              <select id="sc-inv-freq" class="form-control">
+                <option value="12" selected>Monthly (12/yr)</option>
+                <option value="4">Quarterly (4/yr)</option>
+                <option value="1">Annually (1/yr)</option>
+              </select>
+              <span class="form-hint">Compounding and deposit frequency.</span>
+            </div>
+          </div>
+
+          <!-- Preset Strategy Quick Chips -->
+          <div class="scenario-presets-bar">
+            <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Quick Presets:</span>
+            <div id="loan-presets-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+              <button type="button" class="preset-chip" data-preset="rate-shock">⚡ Rate Shock (±1% & ±2%)</button>
+              <button type="button" class="preset-chip" data-preset="term-comparison">⏱ Term (15 vs 20 vs 30 Yrs)</button>
+              <button type="button" class="preset-chip" data-preset="extra-prepay">💰 Extra Prepayment (+15%)</button>
+              <button type="button" class="preset-chip" data-preset="shorten-term">🚀 Fast Payoff (-5 Yrs)</button>
+            </div>
+            <div id="invest-presets-group" style="display: none; gap: 0.4rem; flex-wrap: wrap;">
+              <button type="button" class="preset-chip" data-preset="market-returns">📊 Returns (6% vs 9% vs 12%)</button>
+              <button type="button" class="preset-chip" data-preset="time-horizons">⏳ Horizons (5 vs 10 vs 20 Yrs)</button>
+              <button type="button" class="preset-chip" data-preset="step-up-deposit">📈 Higher Deposits (+50%)</button>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="btn-group" style="margin-top: 1.25rem;">
+            <button type="button" id="btn-calc-scenario" class="btn btn-primary">
+              <span>📊</span> Run Scenario Analysis
+            </button>
+            <button type="button" id="btn-import-from-loan" class="btn btn-secondary" title="Sync numbers from Loan Calculator">
+              <span>🔄</span> Import From Loan Tab
+            </button>
+            <button type="button" id="btn-reset-scenario" class="btn btn-secondary">
+              Reset
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Side-by-Side Scenario Cards Container -->
+      <div id="scenario-cards-container" class="scenario-cards-grid">
+        <!-- Rendered dynamically by JavaScript -->
+      </div>
+
+      <!-- Detailed Comparison Data Table -->
+      <div class="amortization-section" style="margin-top: 2rem;">
+        <div class="amortization-header">
+          <div>
+            <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+              <span>Scenario Comparison Table</span>
+              <span class="badge" style="font-size: 0.72rem; text-transform: uppercase; background: var(--color-primary-light); color: var(--color-primary); border: 1px solid var(--color-primary-border); padding: 0.15rem 0.5rem; border-radius: var(--radius-sm);">Side-by-Side</span>
+            </h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Comprehensive metrics comparing payment, interest, savings, and payoff timelines across all models.</p>
+          </div>
+          <div class="amort-actions-group">
+            <button type="button" id="btn-copy-scenario-table" class="btn btn-secondary" style="font-size: 0.85rem;" title="Copy tab-delimited table to clipboard">
+              <span>📋</span> Copy
+            </button>
+            <button type="button" id="btn-download-scenario-csv" class="btn btn-success" style="font-size: 0.85rem; font-weight: 600;" title="Download scenario comparison table in CSV format">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Download CSV</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table" id="scenario-comparison-table">
+            <thead>
+              <tr id="scenario-table-thead-row">
+                <th style="text-align: left;">Scenario Name</th>
+                <th>Rate (%)</th>
+                <th>Term</th>
+                <th id="th-scenario-pmt">Periodic Payment</th>
+                <th>Total Principal</th>
+                <th>Total Interest</th>
+                <th id="th-scenario-total">Total Outflow</th>
+                <th>Variance vs Base</th>
+              </tr>
+            </thead>
+            <tbody id="scenario-comparison-tbody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 2D Sensitivity Matrix Grid (Rate vs Term Heatmap) -->
+      <div id="sensitivity-matrix-section" class="sensitivity-section">
+        <div class="amortization-header">
+          <div>
+            <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+              <span>Sensitivity Matrix: Rate vs. Term Heatmap</span>
+              <span class="badge" style="font-size: 0.72rem; text-transform: uppercase; background: var(--color-success-bg); color: var(--color-success); border: 1px solid var(--color-success-border); padding: 0.15rem 0.5rem; border-radius: var(--radius-sm);">Interactive 2D Grid</span>
+            </h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
+              Matrix of <span id="matrix-type-desc">Monthly Installments and Total Interest</span> across varying interest rates and term lengths. Click any cell to inspect.
+            </p>
+          </div>
+          <div class="amort-actions-group">
+            <button type="button" id="btn-download-sensitivity-csv" class="btn btn-success" style="font-size: 0.85rem; font-weight: 600;" title="Download Sensitivity Matrix in CSV format">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Download Matrix (CSV)</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table sensitivity-table" id="sensitivity-matrix-table">
+            <thead id="sensitivity-thead">
+              <!-- Rendered dynamically -->
+            </thead>
+            <tbody id="sensitivity-tbody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 8: Calculation History -->
     <section id="pane-history" class="calc-pane" role="tabpanel">
       <div class="history-container">
         <div class="history-header">
