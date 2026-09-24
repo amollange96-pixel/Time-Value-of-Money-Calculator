@@ -1,0 +1,6 @@
+{
+  "name": "Time Value of Money (TVM) Calculator",
+  "description": "Calculate Present Value, Future Value, Annuities, Loan Payments, and Compound Interest.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
