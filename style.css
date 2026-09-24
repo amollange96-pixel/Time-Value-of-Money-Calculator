@@ -1118,6 +1118,13 @@ select.form-control {
   border-color: var(--color-primary-border);
 }
 
+.preset-chip.active {
+  background: var(--color-primary);
+  color: #ffffff;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
 .scenario-cards-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -1329,6 +1336,14 @@ select.form-control {
   background: var(--color-primary-light);
   border: 2px solid var(--color-primary);
   font-weight: 700;
+}
+
+.sensitivity-cell.cell-selected {
+  outline: 3px solid var(--color-primary);
+  box-shadow: 0 0 0 4px var(--color-primary-light);
+  transform: scale(1.05);
+  z-index: 2;
+  position: relative;
 }
 
 .sensitivity-cell.cell-best {

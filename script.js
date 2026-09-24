@@ -23,6 +23,8 @@ const AppState = {
   amortizationViewMode: 'all', // 'all' | 'annual'
   amortizationFilter: '',
   scenarioMode: 'loan', // 'loan' | 'invest'
+  activeScenarioPreset: { loan: 'default', invest: 'default' },
+  inspectedSensitivityCell: null,
   lastScenarioData: null,
   lastSensitivityData: null,
   activeTab: 'fv'
@@ -157,6 +159,9 @@ function switchTab(tabId) {
   document.querySelectorAll('.calc-pane').forEach(pane => {
     pane.classList.toggle('active', pane.id === `pane-${tabId}`);
   });
+  if (tabId === 'scenario') {
+    runScenarioAnalysis({ isLive: true });
+  }
 }
 
 /**
@@ -252,6 +257,7 @@ function initEventListeners() {
   document.getElementById('btn-calc-scenario')?.addEventListener('click', () => runScenarioAnalysis());
   document.getElementById('btn-reset-scenario')?.addEventListener('click', resetScenarioForm);
   document.getElementById('btn-import-from-loan')?.addEventListener('click', importFromLoanTab);
+  document.getElementById('btn-import-from-ci')?.addEventListener('click', importFromCITab);
 
   // Jump from other calculators to Scenario Analysis
   document.getElementById('btn-goto-scenario-loan')?.addEventListener('click', gotoScenarioFromLoan);
@@ -265,10 +271,12 @@ function initEventListeners() {
     });
   });
 
-  // Real-time live inputs for Scenario Analysis
+  // Real-time live inputs for Scenario Analysis (including custom what-if fields)
   const scenarioInputIds = [
     'sc-loan-amount', 'sc-loan-rate', 'sc-loan-term', 'sc-loan-freq', 'sc-loan-prepay',
-    'sc-inv-principal', 'sc-inv-rate', 'sc-inv-term', 'sc-inv-deposit', 'sc-inv-freq'
+    'sc-custom-loan-rate', 'sc-custom-loan-term', 'sc-custom-loan-prepay',
+    'sc-inv-principal', 'sc-inv-rate', 'sc-inv-term', 'sc-inv-deposit', 'sc-inv-freq',
+    'sc-custom-inv-rate', 'sc-custom-inv-term', 'sc-custom-inv-deposit'
   ];
   scenarioInputIds.forEach(id => {
     const el = document.getElementById(id);
@@ -277,6 +285,10 @@ function initEventListeners() {
       el.addEventListener(evt, () => runScenarioAnalysis({ isLive: true }));
     }
   });
+
+  // Interactive Sensitivity Inspector actions
+  document.getElementById('btn-apply-inspect-base')?.addEventListener('click', () => applyInspectedSensitivityCell('base'));
+  document.getElementById('btn-apply-inspect-custom')?.addEventListener('click', () => applyInspectedSensitivityCell('custom'));
 
   // Scenario Table & Matrix Exports
   document.getElementById('btn-copy-scenario-table')?.addEventListener('click', copyScenarioTable);
@@ -1244,6 +1256,10 @@ function recalculateActiveResults() {
   if (AppState.lastAmortizationData) {
     renderAmortizationTable(AppState.lastAmortizationData);
   }
+
+  if (AppState.lastScenarioData) {
+    runScenarioAnalysis({ isLive: true });
+  }
 }
 
 // ==========================================
@@ -1585,6 +1601,7 @@ function downloadAmortizationCSV() {
  */
 function setScenarioMode(mode) {
   AppState.scenarioMode = mode;
+  AppState.inspectedSensitivityCell = null;
 
   const btnLoan = document.getElementById('btn-scenario-mode-loan');
   const btnInvest = document.getElementById('btn-scenario-mode-invest');
@@ -1596,8 +1613,14 @@ function setScenarioMode(mode) {
   const descText = document.getElementById('scenario-desc-text');
   const matrixDesc = document.getElementById('matrix-type-desc');
   const thPmt = document.getElementById('th-scenario-pmt');
+  const thPrincipal = document.getElementById('th-scenario-principal');
+  const thInterest = document.getElementById('th-scenario-interest');
   const thTotal = document.getElementById('th-scenario-total');
-  const importBtn = document.getElementById('btn-import-from-loan');
+  const importLoanBtn = document.getElementById('btn-import-from-loan');
+  const importCiBtn = document.getElementById('btn-import-from-ci');
+  const inspectBar = document.getElementById('sensitivity-inspect-bar');
+
+  if (inspectBar) inspectBar.style.display = 'none';
 
   if (mode === 'loan') {
     btnLoan?.classList.add('active');
@@ -1606,12 +1629,15 @@ function setScenarioMode(mode) {
     if (investInputs) investInputs.style.display = 'none';
     if (loanPresets) loanPresets.style.display = 'flex';
     if (investPresets) investPresets.style.display = 'none';
-    if (importBtn) importBtn.style.display = 'inline-flex';
+    if (importLoanBtn) importLoanBtn.style.display = 'inline-flex';
+    if (importCiBtn) importCiBtn.style.display = 'none';
 
     if (titleText) titleText.textContent = 'Loan Scenario & What-If Analysis';
-    if (descText) descText.textContent = 'Compare baseline loan repayments against optimistic rate cuts, stressed rate hikes, term extensions, and accelerated prepayment schedules.';
+    if (descText) descText.textContent = 'Compare baseline loan repayments against optimistic rate cuts, stressed rate hikes, term extensions, extra prepayments, and custom what-if models.';
     if (matrixDesc) matrixDesc.textContent = 'Monthly Installments and Total Interest';
-    if (thPmt) thPmt.textContent = 'Periodic Payment';
+    if (thPmt) thPmt.textContent = 'Periodic Payment (EMI)';
+    if (thPrincipal) thPrincipal.textContent = 'Total Principal';
+    if (thInterest) thInterest.textContent = 'Total Interest';
     if (thTotal) thTotal.textContent = 'Total Outflow';
   } else {
     btnInvest?.classList.add('active');
@@ -1620,13 +1646,16 @@ function setScenarioMode(mode) {
     if (investInputs) investInputs.style.display = 'grid';
     if (loanPresets) loanPresets.style.display = 'none';
     if (investPresets) investPresets.style.display = 'flex';
-    if (importBtn) importBtn.style.display = 'none';
+    if (importLoanBtn) importLoanBtn.style.display = 'none';
+    if (importCiBtn) importCiBtn.style.display = 'inline-flex';
 
     if (titleText) titleText.textContent = 'Investment & Wealth Scenario Analysis';
-    if (descText) descText.textContent = 'Project potential wealth accumulation across conservative, moderate, and bull market returns, extended horizons, and step-up periodic contributions.';
+    if (descText) descText.textContent = 'Project potential wealth accumulation across conservative, moderate, and bull market returns, extended horizons, step-up periodic contributions, and custom what-if targets.';
     if (matrixDesc) matrixDesc.textContent = 'Accumulated Future Value and Compound Growth';
-    if (thPmt) thPmt.textContent = 'Accumulated Future Value';
-    if (thTotal) thTotal.textContent = 'Total Invested';
+    if (thPmt) thPmt.textContent = 'Periodic Deposit';
+    if (thPrincipal) thPrincipal.textContent = 'Total Contributions';
+    if (thInterest) thInterest.textContent = 'Total Growth (Earned)';
+    if (thTotal) thTotal.textContent = 'Accumulated Wealth (FV)';
   }
 
   runScenarioAnalysis();
@@ -1636,31 +1665,62 @@ function setScenarioMode(mode) {
  * Resets scenario form inputs to default baseline
  */
 function resetScenarioForm() {
-  if (AppState.scenarioMode === 'loan') {
+  const mode = AppState.scenarioMode || 'loan';
+
+  if (mode === 'loan') {
     const elAmt = document.getElementById('sc-loan-amount');
     const elRate = document.getElementById('sc-loan-rate');
     const elTerm = document.getElementById('sc-loan-term');
     const elFreq = document.getElementById('sc-loan-freq');
     const elPrepay = document.getElementById('sc-loan-prepay');
+    const elCustRate = document.getElementById('sc-custom-loan-rate');
+    const elCustTerm = document.getElementById('sc-custom-loan-term');
+    const elCustPrepay = document.getElementById('sc-custom-loan-prepay');
 
     if (elAmt) elAmt.value = '500000';
     if (elRate) elRate.value = '8.5';
     if (elTerm) elTerm.value = '20';
     if (elFreq) elFreq.value = '12';
     if (elPrepay) elPrepay.value = '0';
+    if (elCustRate) elCustRate.value = '';
+    if (elCustTerm) elCustTerm.value = '';
+    if (elCustPrepay) elCustPrepay.value = '';
+
+    const group = document.getElementById('loan-presets-group');
+    group?.querySelectorAll('.preset-chip').forEach(c => {
+      c.classList.toggle('active', c.getAttribute('data-preset') === 'default');
+    });
+    AppState.activeScenarioPreset.loan = 'default';
   } else {
     const elP = document.getElementById('sc-inv-principal');
     const elR = document.getElementById('sc-inv-rate');
     const elT = document.getElementById('sc-inv-term');
     const elDep = document.getElementById('sc-inv-deposit');
     const elFreq = document.getElementById('sc-inv-freq');
+    const elCustRate = document.getElementById('sc-custom-inv-rate');
+    const elCustTerm = document.getElementById('sc-custom-inv-term');
+    const elCustDep = document.getElementById('sc-custom-inv-deposit');
 
     if (elP) elP.value = '100000';
     if (elR) elR.value = '10';
     if (elT) elT.value = '15';
     if (elDep) elDep.value = '5000';
     if (elFreq) elFreq.value = '12';
+    if (elCustRate) elCustRate.value = '';
+    if (elCustTerm) elCustTerm.value = '';
+    if (elCustDep) elCustDep.value = '';
+
+    const group = document.getElementById('invest-presets-group');
+    group?.querySelectorAll('.preset-chip').forEach(c => {
+      c.classList.toggle('active', c.getAttribute('data-preset') === 'default');
+    });
+    AppState.activeScenarioPreset.invest = 'default';
   }
+
+  const inspectBar = document.getElementById('sensitivity-inspect-bar');
+  if (inspectBar) inspectBar.style.display = 'none';
+  AppState.inspectedSensitivityCell = null;
+
   runScenarioAnalysis();
   showNotification('Scenario parameters reset to default baseline.', 'info');
 }
@@ -1675,7 +1735,7 @@ function importFromLoanTab() {
   const loanFreq = document.getElementById('loan-frequency')?.value;
 
   if (!loanAmt || !loanRate || !loanTerm) {
-    showNotification('Please enter values in the Loan Calculator first before importing.', 'warning');
+    showNotification('Please enter values in the Loan Calculator tab first before importing.', 'warning');
     return;
   }
 
@@ -1691,6 +1751,37 @@ function importFromLoanTab() {
 
   runScenarioAnalysis();
   showNotification('Loan parameters imported into Scenario Analysis! 📊', 'success');
+}
+
+/**
+ * Imports investment/compound interest data into scenario inputs
+ */
+function importFromCITab() {
+  const ciP = document.getElementById('ci-principal')?.value;
+  const ciR = document.getElementById('ci-rate')?.value;
+  const ciT = document.getElementById('ci-time')?.value;
+  const ciFreq = document.getElementById('ci-frequency')?.value;
+  const fvaPmt = document.getElementById('fva-payment')?.value;
+
+  if (!ciP && !ciR && !ciT && !fvaPmt) {
+    showNotification('Please enter values in the Compound Interest or Annuity tab first.', 'warning');
+    return;
+  }
+
+  const elP = document.getElementById('sc-inv-principal');
+  const elR = document.getElementById('sc-inv-rate');
+  const elT = document.getElementById('sc-inv-term');
+  const elDep = document.getElementById('sc-inv-deposit');
+  const elFreq = document.getElementById('sc-inv-freq');
+
+  if (ciP && elP) elP.value = ciP;
+  if (ciR && elR) elR.value = ciR;
+  if (ciT && elT) elT.value = ciT;
+  if (ciFreq && elFreq) elFreq.value = ciFreq;
+  if (fvaPmt && elDep) elDep.value = fvaPmt;
+
+  runScenarioAnalysis();
+  showNotification('Investment parameters imported into Scenario Analysis! 📈', 'success');
 }
 
 /**
@@ -1710,18 +1801,7 @@ function gotoScenarioFromLoan() {
  * Navigates to Scenario tab from Compound Interest tab with investment parameters
  */
 function gotoScenarioFromCI() {
-  const ciP = document.getElementById('ci-principal')?.value || '100000';
-  const ciR = document.getElementById('ci-rate')?.value || '10';
-  const ciT = document.getElementById('ci-time')?.value || '15';
-
-  const elP = document.getElementById('sc-inv-principal');
-  const elR = document.getElementById('sc-inv-rate');
-  const elT = document.getElementById('sc-inv-term');
-
-  if (elP) elP.value = ciP;
-  if (elR) elR.value = ciR;
-  if (elT) elT.value = ciT;
-
+  importFromCITab();
   setScenarioMode('invest');
   switchTab('scenario');
   const target = document.getElementById('pane-scenario');
@@ -1734,54 +1814,73 @@ function gotoScenarioFromCI() {
  * Quick presets handler for one-click scenario testing
  */
 function applyScenarioPreset(presetKey) {
-  if (AppState.scenarioMode === 'loan') {
-    const elRate = document.getElementById('sc-loan-rate');
-    const elTerm = document.getElementById('sc-loan-term');
-    const elPrepay = document.getElementById('sc-loan-prepay');
-    const currentRate = parseFloat(elRate?.value) || 8.5;
-    const currentTerm = parseFloat(elTerm?.value) || 20;
+  const mode = AppState.scenarioMode || 'loan';
+  if (!AppState.activeScenarioPreset) {
+    AppState.activeScenarioPreset = { loan: 'default', invest: 'default' };
+  }
+  AppState.activeScenarioPreset[mode] = presetKey;
 
+  // Update visual active chip
+  const group = document.getElementById(mode === 'loan' ? 'loan-presets-group' : 'invest-presets-group');
+  group?.querySelectorAll('.preset-chip').forEach(c => {
+    c.classList.toggle('active', c.getAttribute('data-preset') === presetKey);
+  });
+
+  if (mode === 'loan') {
     switch (presetKey) {
+      case 'default':
+        showNotification('Overview preset active: Displaying Base, Rate Cut, Rate Hike, and Accelerated Term.', 'info');
+        break;
       case 'rate-shock':
-        showNotification('Rate Shock preset active: Comparing Base vs -1.0% Rate Cut vs +1.5% Rate Hike.', 'info');
+        showNotification('Rate Shock preset active: Comparing Base vs ±1.0% and ±2.0% APR movements.', 'info');
         break;
       case 'term-comparison':
-        showNotification('Term Comparison active: Comparing 15 vs 20 vs 30 year payoffs.', 'info');
+        showNotification('Term Comparison active: Comparing 15 vs 20 vs 25 vs 30 year payoffs.', 'info');
         break;
-      case 'extra-prepay':
-        // Set an extra prepayment around 15% of periodic payment
+      case 'extra-prepay': {
         const elAmt = document.getElementById('sc-loan-amount');
+        const elRate = document.getElementById('sc-loan-rate');
+        const elTerm = document.getElementById('sc-loan-term');
+        const elPrepay = document.getElementById('sc-loan-prepay');
         const principal = parseFloat(elAmt?.value) || 500000;
-        const estPmt = (principal * (currentRate / 100 / 12)) / (1 - Math.pow(1 + currentRate / 100 / 12, -currentTerm * 12));
-        if (elPrepay) elPrepay.value = Math.round(estPmt * 0.15);
-        showNotification(`Applied extra periodic prepayment of ${formatCurrency(Math.round(estPmt * 0.15))}! 💰`, 'success');
+        const currentRate = parseFloat(elRate?.value) || 8.5;
+        const currentTerm = parseFloat(elTerm?.value) || 20;
+        const rPer = currentRate / 100 / 12;
+        const nPer = currentTerm * 12;
+        const estPmt = rPer === 0 ? (principal / nPer) : (principal * rPer) / (1 - Math.pow(1 + rPer, -nPer));
+        const prepayAmt = Math.round(estPmt * 0.15);
+        if (elPrepay && (!parseFloat(elPrepay.value) || parseFloat(elPrepay.value) <= 0)) {
+          elPrepay.value = prepayAmt;
+        }
+        showNotification(`Extra Prepayment preset active: Testing +10%, +20%, and +30% monthly principal prepayments! 💰`, 'success');
         break;
+      }
       case 'shorten-term':
-        if (elTerm) elTerm.value = Math.max(5, currentTerm - 5);
-        showNotification(`Shortened baseline term by 5 years to ${elTerm?.value} years! 🚀`, 'success');
+        showNotification('Fast Payoff preset active: Comparing payoffs shortened by 3, 5, and 7 years.', 'info');
         break;
     }
   } else {
-    const elR = document.getElementById('sc-inv-rate');
-    const elT = document.getElementById('sc-inv-term');
-    const elDep = document.getElementById('sc-inv-deposit');
-
     switch (presetKey) {
+      case 'default':
+        showNotification('Overview preset active: Displaying Expected, Conservative, Bull Market, and Extended Horizon.', 'info');
+        break;
       case 'market-returns':
-        showNotification('Market Returns preset: Evaluating Conservative (6%), Balanced (9%), and Aggressive (12%) returns.', 'info');
+        showNotification('Returns Comparison active: Evaluating Conservative (6%), Balanced (9%), Growth (12%), and High Growth (15%).', 'info');
         break;
       case 'time-horizons':
-        showNotification('Time Horizons preset: Comparing 5, 10, 15, and 20 year compounding milestones.', 'info');
+        showNotification('Time Horizons active: Comparing 5, 10, 15, 20, and 25 year compounding milestones.', 'info');
         break;
-      case 'step-up-deposit':
-        if (elDep) {
-          const currentDep = parseFloat(elDep.value) || 5000;
-          elDep.value = Math.round(currentDep * 1.5);
-          showNotification(`Boosted periodic contribution by 50% to ${formatCurrency(elDep.value)}! 📈`, 'success');
+      case 'step-up-deposit': {
+        const elDep = document.getElementById('sc-inv-deposit');
+        if (elDep && (!parseFloat(elDep.value) || parseFloat(elDep.value) <= 0)) {
+          elDep.value = '5000';
         }
+        showNotification('Higher Deposits active: Comparing +25%, +50%, and +100% monthly contribution increases! 📈', 'success');
         break;
+      }
     }
   }
+
   runScenarioAnalysis();
 }
 
@@ -1789,9 +1888,9 @@ function applyScenarioPreset(presetKey) {
  * Accurate financial calculation for a loan scenario
  */
 function calculateScenarioLoanMetrics(principal, annualRate, termYears, frequency = 12, extraPayment = 0) {
-  const m = frequency;
+  const m = Math.max(1, frequency);
   const periodicRate = (annualRate / 100) / m;
-  const basePeriods = Math.round(termYears * m);
+  const basePeriods = Math.max(1, Math.round(termYears * m));
 
   let scheduledPayment = 0;
   if (periodicRate === 0) {
@@ -1818,7 +1917,7 @@ function calculateScenarioLoanMetrics(principal, annualRate, termYears, frequenc
     };
   }
 
-  // Simulate amortization row-by-row when extra prepayment is present
+  // Simulate amortization period-by-period when extra prepayment is present
   let balance = principal;
   let totalInterest = 0;
   let actualPeriods = 0;
@@ -1861,9 +1960,9 @@ function calculateScenarioLoanMetrics(principal, annualRate, termYears, frequenc
  * Accurate financial calculation for an investment scenario
  */
 function calculateScenarioInvestMetrics(initialPrincipal, annualRate, termYears, periodicContribution = 0, frequency = 12) {
-  const m = frequency;
+  const m = Math.max(1, frequency);
   const r = (annualRate / 100) / m;
-  const n = Math.round(termYears * m);
+  const n = Math.max(1, Math.round(termYears * m));
 
   // Lump sum FV
   let fvLump = 0;
@@ -1903,20 +2002,36 @@ function calculateScenarioInvestMetrics(initialPrincipal, annualRate, termYears,
 function runScenarioAnalysis(options = {}) {
   const mode = AppState.scenarioMode || 'loan';
 
-  if (mode === 'loan') {
-    const principal = Math.max(1, parseFloat(document.getElementById('sc-loan-amount')?.value) || 500000);
-    const annualRate = Math.max(0, parseFloat(document.getElementById('sc-loan-rate')?.value) || 8.5);
-    const termYears = Math.max(0.1, parseFloat(document.getElementById('sc-loan-term')?.value) || 20);
-    const freq = parseInt(document.getElementById('sc-loan-freq')?.value, 10) || 12;
-    const extraPrepay = Math.max(0, parseFloat(document.getElementById('sc-loan-prepay')?.value) || 0);
+  // Helper to safely parse inputs without falsy-zero bugs
+  const parseNum = (id, fallback) => {
+    const el = document.getElementById(id);
+    if (!el) return fallback;
+    const val = el.value.trim();
+    if (val === '') return fallback;
+    const n = parseFloat(val);
+    return isNaN(n) ? fallback : n;
+  };
 
-    // Compute Base Case
+  const preset = (AppState.activeScenarioPreset && AppState.activeScenarioPreset[mode]) || 'default';
+
+  if (mode === 'loan') {
+    const principal = Math.max(1, parseNum('sc-loan-amount', 500000));
+    const annualRate = Math.max(0, parseNum('sc-loan-rate', 8.5));
+    const termYears = Math.max(0.1, parseNum('sc-loan-term', 20));
+    const freq = parseInt(document.getElementById('sc-loan-freq')?.value, 10) || 12;
+    const extraPrepay = Math.max(0, parseNum('sc-loan-prepay', 0));
+
+    // Custom What-If Inputs
+    const customRate = parseNum('sc-custom-loan-rate', null);
+    const customTerm = parseNum('sc-custom-loan-term', null);
+    const customPrepay = parseNum('sc-custom-loan-prepay', null);
+
+    // Baseline calculation
     const base = calculateScenarioLoanMetrics(principal, annualRate, termYears, freq, 0);
 
-    // Build Multiple Scenarios
     const scenarios = [];
 
-    // 1. Base Case
+    // 1. Always include Base Case
     scenarios.push({
       id: 'base',
       name: 'Base Case (Current)',
@@ -1932,76 +2047,246 @@ function runScenarioAnalysis(options = {}) {
       isBase: true
     });
 
-    // 2. Favorable / Rate Cut Scenario (-1.0% Rate Cut)
-    const rateCut = Math.max(0.1, +(annualRate - 1.0).toFixed(2));
-    const optimisticMetrics = calculateScenarioLoanMetrics(principal, rateCut, termYears, freq, extraPrepay);
-    scenarios.push({
-      id: 'optimistic',
-      name: 'Optimistic (Rate Cut -1.0%)',
-      badgeClass: 'badge-optimistic',
-      cardClass: 'card-optimistic',
-      badgeText: '-1.0% APR Cut',
-      rate: rateCut,
-      term: termYears,
-      extra: extraPrepay,
-      metrics: optimisticMetrics,
-      deltaPmt: optimisticMetrics.actualPayment - base.actualPayment,
-      deltaInterest: optimisticMetrics.totalInterest - base.totalInterest,
-      isBase: false
-    });
+    if (preset === 'rate-shock') {
+      // Rate Shock Scenarios: -2%, -1%, +1%, +2%
+      const cut2 = Math.max(0.1, +(annualRate - 2.0).toFixed(2));
+      const cut1 = Math.max(0.1, +(annualRate - 1.0).toFixed(2));
+      const hike1 = +(annualRate + 1.0).toFixed(2);
+      const hike2 = +(annualRate + 2.0).toFixed(2);
 
-    // 3. Stressed / Rate Hike (+1.5% Rate Hike)
-    const rateHike = +(annualRate + 1.5).toFixed(2);
-    const pessimisticMetrics = calculateScenarioLoanMetrics(principal, rateHike, termYears, freq, 0);
-    scenarios.push({
-      id: 'pessimistic',
-      name: 'Stressed (Rate Hike +1.5%)',
-      badgeClass: 'badge-pessimistic',
-      cardClass: 'card-pessimistic',
-      badgeText: '+1.5% APR Hike',
-      rate: rateHike,
-      term: termYears,
-      extra: 0,
-      metrics: pessimisticMetrics,
-      deltaPmt: pessimisticMetrics.actualPayment - base.actualPayment,
-      deltaInterest: pessimisticMetrics.totalInterest - base.totalInterest,
-      isBase: false
-    });
-
-    // 4. Shorter Term Alternative (Fast Payoff)
-    const shorterTerm = termYears > 15 ? 15 : Math.max(3, +(termYears * 0.75).toFixed(1));
-    const shorterMetrics = calculateScenarioLoanMetrics(principal, annualRate, shorterTerm, freq, 0);
-    scenarios.push({
-      id: 'short-term',
-      name: `Accelerated Term (${shorterTerm} Yrs)`,
-      badgeClass: 'badge-custom',
-      cardClass: 'card-custom',
-      badgeText: `${shorterTerm} Yr Term`,
-      rate: annualRate,
-      term: shorterTerm,
-      extra: 0,
-      metrics: shorterMetrics,
-      deltaPmt: shorterMetrics.actualPayment - base.actualPayment,
-      deltaInterest: shorterMetrics.totalInterest - base.totalInterest,
-      isBase: false
-    });
-
-    // 5. If extra prepayment was specified, add dedicated Prepayment scenario
-    if (extraPrepay > 0) {
-      const prepayMetrics = calculateScenarioLoanMetrics(principal, annualRate, termYears, freq, extraPrepay);
+      const mCut2 = calculateScenarioLoanMetrics(principal, cut2, termYears, freq, extraPrepay);
       scenarios.push({
-        id: 'prepay',
-        name: `Prepayment (+${formatCurrency(extraPrepay)}/mo)`,
+        id: 'cut-2',
+        name: 'Major Rate Cut (-2.0%)',
         badgeClass: 'badge-optimistic',
         cardClass: 'card-optimistic',
-        badgeText: 'Extra Prepay',
-        rate: annualRate,
+        badgeText: '-2.0% APR',
+        rate: cut2,
         term: termYears,
         extra: extraPrepay,
-        metrics: prepayMetrics,
-        deltaPmt: prepayMetrics.actualPayment - base.actualPayment,
-        deltaInterest: prepayMetrics.totalInterest - base.totalInterest,
+        metrics: mCut2,
+        deltaPmt: mCut2.actualPayment - base.actualPayment,
+        deltaInterest: mCut2.totalInterest - base.totalInterest,
         isBase: false
+      });
+
+      const mCut1 = calculateScenarioLoanMetrics(principal, cut1, termYears, freq, extraPrepay);
+      scenarios.push({
+        id: 'cut-1',
+        name: 'Mild Rate Cut (-1.0%)',
+        badgeClass: 'badge-optimistic',
+        cardClass: 'card-optimistic',
+        badgeText: '-1.0% APR',
+        rate: cut1,
+        term: termYears,
+        extra: extraPrepay,
+        metrics: mCut1,
+        deltaPmt: mCut1.actualPayment - base.actualPayment,
+        deltaInterest: mCut1.totalInterest - base.totalInterest,
+        isBase: false
+      });
+
+      const mHike1 = calculateScenarioLoanMetrics(principal, hike1, termYears, freq, extraPrepay);
+      scenarios.push({
+        id: 'hike-1',
+        name: 'Mild Rate Hike (+1.0%)',
+        badgeClass: 'badge-pessimistic',
+        cardClass: 'card-pessimistic',
+        badgeText: '+1.0% APR',
+        rate: hike1,
+        term: termYears,
+        extra: extraPrepay,
+        metrics: mHike1,
+        deltaPmt: mHike1.actualPayment - base.actualPayment,
+        deltaInterest: mHike1.totalInterest - base.totalInterest,
+        isBase: false
+      });
+
+      const mHike2 = calculateScenarioLoanMetrics(principal, hike2, termYears, freq, extraPrepay);
+      scenarios.push({
+        id: 'hike-2',
+        name: 'Severe Rate Hike (+2.0%)',
+        badgeClass: 'badge-pessimistic',
+        cardClass: 'card-pessimistic',
+        badgeText: '+2.0% APR',
+        rate: hike2,
+        term: termYears,
+        extra: extraPrepay,
+        metrics: mHike2,
+        deltaPmt: mHike2.actualPayment - base.actualPayment,
+        deltaInterest: mHike2.totalInterest - base.totalInterest,
+        isBase: false
+      });
+
+    } else if (preset === 'term-comparison') {
+      // Term Comparison: 15 vs 20 vs 25 vs 30 Yrs
+      const termsList = [15, 20, 25, 30].filter(t => t !== Math.round(termYears));
+      termsList.forEach(t => {
+        const mTerm = calculateScenarioLoanMetrics(principal, annualRate, t, freq, extraPrepay);
+        scenarios.push({
+          id: `term-${t}`,
+          name: `${t}-Year Term Payoff`,
+          badgeClass: t < termYears ? 'badge-optimistic' : 'badge-custom',
+          cardClass: t < termYears ? 'card-optimistic' : 'card-custom',
+          badgeText: `${t} Years`,
+          rate: annualRate,
+          term: t,
+          extra: extraPrepay,
+          metrics: mTerm,
+          deltaPmt: mTerm.actualPayment - base.actualPayment,
+          deltaInterest: mTerm.totalInterest - base.totalInterest,
+          isBase: false
+        });
+      });
+
+    } else if (preset === 'extra-prepay') {
+      // Extra Prepayment Comparison (+10%, +20%, +30% of scheduled payment)
+      const pmt = base.scheduledPayment;
+      const steps = [
+        { label: '+10% Extra Prepayment', amt: Math.round(pmt * 0.1) },
+        { label: '+20% Extra Prepayment', amt: Math.round(pmt * 0.2) },
+        { label: '+30% Extra Prepayment', amt: Math.round(pmt * 0.3) }
+      ];
+
+      steps.forEach((step, idx) => {
+        const mPre = calculateScenarioLoanMetrics(principal, annualRate, termYears, freq, step.amt);
+        scenarios.push({
+          id: `prepay-step-${idx}`,
+          name: step.label,
+          badgeClass: 'badge-optimistic',
+          cardClass: 'card-optimistic',
+          badgeText: `+${formatCurrency(step.amt)}/mo`,
+          rate: annualRate,
+          term: termYears,
+          extra: step.amt,
+          metrics: mPre,
+          deltaPmt: mPre.actualPayment - base.actualPayment,
+          deltaInterest: mPre.totalInterest - base.totalInterest,
+          isBase: false
+        });
+      });
+
+    } else if (preset === 'shorten-term') {
+      // Fast Payoff: Shorten term by 3, 5, and 7 years
+      const deltas = [3, 5, 7];
+      deltas.forEach(d => {
+        const newT = Math.max(1, +(termYears - d).toFixed(1));
+        if (newT < termYears) {
+          const mFast = calculateScenarioLoanMetrics(principal, annualRate, newT, freq, extraPrepay);
+          scenarios.push({
+            id: `fast-${d}`,
+            name: `Payoff ${d} Years Sooner`,
+            badgeClass: 'badge-optimistic',
+            cardClass: 'card-optimistic',
+            badgeText: `${newT} Yr Term`,
+            rate: annualRate,
+            term: newT,
+            extra: extraPrepay,
+            metrics: mFast,
+            deltaPmt: mFast.actualPayment - base.actualPayment,
+            deltaInterest: mFast.totalInterest - base.totalInterest,
+            isBase: false
+          });
+        }
+      });
+
+    } else {
+      // Default All-Round Overview
+      // 2. Favorable / Rate Cut (-1.0%)
+      const rateCut = Math.max(0.1, +(annualRate - 1.0).toFixed(2));
+      const optimisticMetrics = calculateScenarioLoanMetrics(principal, rateCut, termYears, freq, extraPrepay);
+      scenarios.push({
+        id: 'optimistic',
+        name: 'Optimistic (Rate Cut -1.0%)',
+        badgeClass: 'badge-optimistic',
+        cardClass: 'card-optimistic',
+        badgeText: '-1.0% APR Cut',
+        rate: rateCut,
+        term: termYears,
+        extra: extraPrepay,
+        metrics: optimisticMetrics,
+        deltaPmt: optimisticMetrics.actualPayment - base.actualPayment,
+        deltaInterest: optimisticMetrics.totalInterest - base.totalInterest,
+        isBase: false
+      });
+
+      // 3. Stressed / Rate Hike (+1.5%)
+      const rateHike = +(annualRate + 1.5).toFixed(2);
+      const pessimisticMetrics = calculateScenarioLoanMetrics(principal, rateHike, termYears, freq, 0);
+      scenarios.push({
+        id: 'pessimistic',
+        name: 'Stressed (Rate Hike +1.5%)',
+        badgeClass: 'badge-pessimistic',
+        cardClass: 'card-pessimistic',
+        badgeText: '+1.5% APR Hike',
+        rate: rateHike,
+        term: termYears,
+        extra: 0,
+        metrics: pessimisticMetrics,
+        deltaPmt: pessimisticMetrics.actualPayment - base.actualPayment,
+        deltaInterest: pessimisticMetrics.totalInterest - base.totalInterest,
+        isBase: false
+      });
+
+      // 4. Shorter Term Alternative (Fast Payoff)
+      const shorterTerm = termYears > 15 ? 15 : Math.max(3, +(termYears * 0.75).toFixed(1));
+      const shorterMetrics = calculateScenarioLoanMetrics(principal, annualRate, shorterTerm, freq, 0);
+      scenarios.push({
+        id: 'short-term',
+        name: `Accelerated Term (${shorterTerm} Yrs)`,
+        badgeClass: 'badge-custom',
+        cardClass: 'card-custom',
+        badgeText: `${shorterTerm} Yr Term`,
+        rate: annualRate,
+        term: shorterTerm,
+        extra: 0,
+        metrics: shorterMetrics,
+        deltaPmt: shorterMetrics.actualPayment - base.actualPayment,
+        deltaInterest: shorterMetrics.totalInterest - base.totalInterest,
+        isBase: false
+      });
+
+      // 5. Prepayment Scenario (if extra prepay is specified)
+      if (extraPrepay > 0) {
+        const prepayMetrics = calculateScenarioLoanMetrics(principal, annualRate, termYears, freq, extraPrepay);
+        scenarios.push({
+          id: 'prepay',
+          name: `Prepayment (+${formatCurrency(extraPrepay)}/mo)`,
+          badgeClass: 'badge-optimistic',
+          cardClass: 'card-optimistic',
+          badgeText: 'Extra Prepay',
+          rate: annualRate,
+          term: termYears,
+          extra: extraPrepay,
+          metrics: prepayMetrics,
+          deltaPmt: prepayMetrics.actualPayment - base.actualPayment,
+          deltaInterest: prepayMetrics.totalInterest - base.totalInterest,
+          isBase: false
+        });
+      }
+    }
+
+    // Check if Custom What-If Model is entered
+    if (customRate !== null || customTerm !== null || customPrepay !== null) {
+      const cRate = customRate !== null ? Math.max(0, customRate) : annualRate;
+      const cTerm = customTerm !== null ? Math.max(0.1, customTerm) : termYears;
+      const cPrepay = customPrepay !== null ? Math.max(0, customPrepay) : extraPrepay;
+      const cMetrics = calculateScenarioLoanMetrics(principal, cRate, cTerm, freq, cPrepay);
+
+      scenarios.push({
+        id: 'custom-user',
+        name: '🎯 Custom What-If Model',
+        badgeClass: 'badge-custom',
+        cardClass: 'card-custom',
+        badgeText: 'Custom Target',
+        rate: cRate,
+        term: cTerm,
+        extra: cPrepay,
+        metrics: cMetrics,
+        deltaPmt: cMetrics.actualPayment - base.actualPayment,
+        deltaInterest: cMetrics.totalInterest - base.totalInterest,
+        isBase: false,
+        isCustom: true
       });
     }
 
@@ -2017,12 +2302,17 @@ function runScenarioAnalysis(options = {}) {
     renderSensitivityMatrix(sensitivityData, 'loan');
 
   } else {
-    // Investment Mode
-    const principal = Math.max(0, parseFloat(document.getElementById('sc-inv-principal')?.value) || 100000);
-    const returnRate = Math.max(0, parseFloat(document.getElementById('sc-inv-rate')?.value) || 10);
-    const horizonYears = Math.max(0.5, parseFloat(document.getElementById('sc-inv-term')?.value) || 15);
-    const contribution = Math.max(0, parseFloat(document.getElementById('sc-inv-deposit')?.value) || 5000);
+    // ================= INVESTMENT MODE =================
+    const principal = Math.max(0, parseNum('sc-inv-principal', 100000));
+    const returnRate = Math.max(0, parseNum('sc-inv-rate', 10));
+    const horizonYears = Math.max(0.1, parseNum('sc-inv-term', 15));
+    const contribution = Math.max(0, parseNum('sc-inv-deposit', 5000));
     const freq = parseInt(document.getElementById('sc-inv-freq')?.value, 10) || 12;
+
+    // Custom What-If Inputs
+    const customRate = parseNum('sc-custom-inv-rate', null);
+    const customHorizon = parseNum('sc-custom-inv-term', null);
+    const customDeposit = parseNum('sc-custom-inv-deposit', null);
 
     const base = calculateScenarioInvestMetrics(principal, returnRate, horizonYears, contribution, freq);
 
@@ -2043,73 +2333,165 @@ function runScenarioAnalysis(options = {}) {
       isBase: true
     });
 
-    // 2. Conservative Market (-3.0%)
-    const rateCons = Math.max(0, +(returnRate - 3.0).toFixed(2));
-    const consMetrics = calculateScenarioInvestMetrics(principal, rateCons, horizonYears, contribution, freq);
-    scenarios.push({
-      id: 'conservative',
-      name: 'Conservative Market (-3.0%)',
-      badgeClass: 'badge-pessimistic',
-      cardClass: 'card-pessimistic',
-      badgeText: `${rateCons}% Return`,
-      rate: rateCons,
-      term: horizonYears,
-      deposit: contribution,
-      metrics: consMetrics,
-      deltaFV: consMetrics.futureValue - base.futureValue,
-      isBase: false
-    });
+    if (preset === 'market-returns') {
+      // Returns Comparison: Conservative 6%, Balanced 9%, Growth 12%, High Growth 15%
+      const testRates = [6, 9, 12, 15];
+      testRates.forEach(r => {
+        const mRet = calculateScenarioInvestMetrics(principal, r, horizonYears, contribution, freq);
+        scenarios.push({
+          id: `rate-${r}`,
+          name: `${r}% Annual Return`,
+          badgeClass: r >= returnRate ? 'badge-optimistic' : 'badge-pessimistic',
+          cardClass: r >= returnRate ? 'card-optimistic' : 'card-pessimistic',
+          badgeText: `${r}% p.a.`,
+          rate: r,
+          term: horizonYears,
+          deposit: contribution,
+          metrics: mRet,
+          deltaFV: mRet.futureValue - base.futureValue,
+          isBase: false
+        });
+      });
 
-    // 3. High Growth / Bull Market (+3.0%)
-    const rateBull = +(returnRate + 3.0).toFixed(2);
-    const bullMetrics = calculateScenarioInvestMetrics(principal, rateBull, horizonYears, contribution, freq);
-    scenarios.push({
-      id: 'bull',
-      name: 'High Growth Bull (+3.0%)',
-      badgeClass: 'badge-optimistic',
-      cardClass: 'card-optimistic',
-      badgeText: `${rateBull}% Return`,
-      rate: rateBull,
-      term: horizonYears,
-      deposit: contribution,
-      metrics: bullMetrics,
-      deltaFV: bullMetrics.futureValue - base.futureValue,
-      isBase: false
-    });
+    } else if (preset === 'time-horizons') {
+      // Time Horizons: 5, 10, 15, 20, 25 Years
+      const testHorizons = [5, 10, 15, 20, 25].filter(h => h !== Math.round(horizonYears));
+      testHorizons.forEach(h => {
+        const mHor = calculateScenarioInvestMetrics(principal, returnRate, h, contribution, freq);
+        scenarios.push({
+          id: `horizon-${h}`,
+          name: `${h}-Year Milestone`,
+          badgeClass: h > horizonYears ? 'badge-optimistic' : 'badge-custom',
+          cardClass: h > horizonYears ? 'card-optimistic' : 'card-custom',
+          badgeText: `${h} Yrs`,
+          rate: returnRate,
+          term: h,
+          deposit: contribution,
+          metrics: mHor,
+          deltaFV: mHor.futureValue - base.futureValue,
+          isBase: false
+        });
+      });
 
-    // 4. Extended Horizon (+5 Years)
-    const extTerm = +(horizonYears + 5).toFixed(1);
-    const extMetrics = calculateScenarioInvestMetrics(principal, returnRate, extTerm, contribution, freq);
-    scenarios.push({
-      id: 'extended',
-      name: `Extended Horizon (+5 Yrs)`,
-      badgeClass: 'badge-custom',
-      cardClass: 'card-custom',
-      badgeText: `${extTerm} Yrs`,
-      rate: returnRate,
-      term: extTerm,
-      deposit: contribution,
-      metrics: extMetrics,
-      deltaFV: extMetrics.futureValue - base.futureValue,
-      isBase: false
-    });
+    } else if (preset === 'step-up-deposit') {
+      // Step-up Contributions (+25%, +50%, +100%)
+      const baseDep = contribution > 0 ? contribution : 5000;
+      const stepRatios = [
+        { label: '+25% Step-up Deposit', val: Math.round(baseDep * 1.25) },
+        { label: '+50% Step-up Deposit', val: Math.round(baseDep * 1.5) },
+        { label: '+100% Double Deposit', val: Math.round(baseDep * 2.0) }
+      ];
 
-    // 5. Step-up Contribution (+50%)
-    if (contribution > 0) {
-      const stepDeposit = Math.round(contribution * 1.5);
-      const stepMetrics = calculateScenarioInvestMetrics(principal, returnRate, horizonYears, stepDeposit, freq);
+      stepRatios.forEach((s, idx) => {
+        const mStep = calculateScenarioInvestMetrics(principal, returnRate, horizonYears, s.val, freq);
+        scenarios.push({
+          id: `step-${idx}`,
+          name: s.label,
+          badgeClass: 'badge-optimistic',
+          cardClass: 'card-optimistic',
+          badgeText: `+${formatCurrency(s.val - baseDep)}/mo`,
+          rate: returnRate,
+          term: horizonYears,
+          deposit: s.val,
+          metrics: mStep,
+          deltaFV: mStep.futureValue - base.futureValue,
+          isBase: false
+        });
+      });
+
+    } else {
+      // Default Investment Overview
+      // 2. Conservative Market (-3.0%)
+      const rateCons = Math.max(0, +(returnRate - 3.0).toFixed(2));
+      const consMetrics = calculateScenarioInvestMetrics(principal, rateCons, horizonYears, contribution, freq);
       scenarios.push({
-        id: 'step-up',
-        name: `Boosted Deposits (+50%)`,
+        id: 'conservative',
+        name: 'Conservative Market (-3.0%)',
+        badgeClass: 'badge-pessimistic',
+        cardClass: 'card-pessimistic',
+        badgeText: `${rateCons}% Return`,
+        rate: rateCons,
+        term: horizonYears,
+        deposit: contribution,
+        metrics: consMetrics,
+        deltaFV: consMetrics.futureValue - base.futureValue,
+        isBase: false
+      });
+
+      // 3. High Growth / Bull Market (+3.0%)
+      const rateBull = +(returnRate + 3.0).toFixed(2);
+      const bullMetrics = calculateScenarioInvestMetrics(principal, rateBull, horizonYears, contribution, freq);
+      scenarios.push({
+        id: 'bull',
+        name: 'High Growth Bull (+3.0%)',
         badgeClass: 'badge-optimistic',
         cardClass: 'card-optimistic',
-        badgeText: `+50% PMT`,
-        rate: returnRate,
+        badgeText: `${rateBull}% Return`,
+        rate: rateBull,
         term: horizonYears,
-        deposit: stepDeposit,
-        metrics: stepMetrics,
-        deltaFV: stepMetrics.futureValue - base.futureValue,
+        deposit: contribution,
+        metrics: bullMetrics,
+        deltaFV: bullMetrics.futureValue - base.futureValue,
         isBase: false
+      });
+
+      // 4. Extended Horizon (+5 Years)
+      const extTerm = +(horizonYears + 5).toFixed(1);
+      const extMetrics = calculateScenarioInvestMetrics(principal, returnRate, extTerm, contribution, freq);
+      scenarios.push({
+        id: 'extended',
+        name: `Extended Horizon (+5 Yrs)`,
+        badgeClass: 'badge-custom',
+        cardClass: 'card-custom',
+        badgeText: `${extTerm} Yrs`,
+        rate: returnRate,
+        term: extTerm,
+        deposit: contribution,
+        metrics: extMetrics,
+        deltaFV: extMetrics.futureValue - base.futureValue,
+        isBase: false
+      });
+
+      // 5. Step-up Contribution (+50%)
+      if (contribution > 0) {
+        const stepDeposit = Math.round(contribution * 1.5);
+        const stepMetrics = calculateScenarioInvestMetrics(principal, returnRate, horizonYears, stepDeposit, freq);
+        scenarios.push({
+          id: 'step-up',
+          name: `Boosted Deposits (+50%)`,
+          badgeClass: 'badge-optimistic',
+          cardClass: 'card-optimistic',
+          badgeText: `+50% PMT`,
+          rate: returnRate,
+          term: horizonYears,
+          deposit: stepDeposit,
+          metrics: stepMetrics,
+          deltaFV: stepMetrics.futureValue - base.futureValue,
+          isBase: false
+        });
+      }
+    }
+
+    // Custom What-If Model for Investment
+    if (customRate !== null || customHorizon !== null || customDeposit !== null) {
+      const cRate = customRate !== null ? Math.max(0, customRate) : returnRate;
+      const cTerm = customHorizon !== null ? Math.max(0.1, customHorizon) : horizonYears;
+      const cDep = customDeposit !== null ? Math.max(0, customDeposit) : contribution;
+      const cMetrics = calculateScenarioInvestMetrics(principal, cRate, cTerm, cDep, freq);
+
+      scenarios.push({
+        id: 'custom-inv-user',
+        name: '🎯 Custom What-If Model',
+        badgeClass: 'badge-custom',
+        cardClass: 'card-custom',
+        badgeText: 'Custom Target',
+        rate: cRate,
+        term: cTerm,
+        deposit: cDep,
+        metrics: cMetrics,
+        deltaFV: cMetrics.futureValue - base.futureValue,
+        isBase: false,
+        isCustom: true
       });
     }
 
@@ -2181,7 +2563,7 @@ function renderScenarioCards(scenarios, mode) {
         </div>
 
         <div class="scenario-metric-box">
-          <div class="scenario-metric-label">Monthly Installment</div>
+          <div class="scenario-metric-label">Monthly Installment (EMI)</div>
           <div class="scenario-metric-value">${formatCurrency(m.actualPayment)}</div>
         </div>
 
@@ -2198,7 +2580,7 @@ function renderScenarioCards(scenarios, mode) {
           </div>
           <div class="scenario-prop-row">
             <span class="scenario-prop-label">Total Interest:</span>
-            <span class="scenario-prop-val" style="color: var(--color-warning);">${formatCurrency(m.totalInterest)}</span>
+            <span class="scenario-prop-val" style="color: var(--color-warning); font-weight: 700;">${formatCurrency(m.totalInterest)}</span>
           </div>
           <div class="scenario-prop-row">
             <span class="scenario-prop-label">Total Outflow:</span>
@@ -2228,13 +2610,13 @@ function renderScenarioCards(scenarios, mode) {
           deltaBoxHtml = `
             <div class="scenario-delta-box delta-positive">
               <span>+${formatCurrency(absDiff)} Wealth</span>
-              <span>Higher Return</span>
+              <span>Higher Return / Savings</span>
             </div>
           `;
         } else {
           deltaBoxHtml = `
             <div class="scenario-delta-box delta-negative">
-              <span>-${formatCurrency(absDiff)}</span>
+              <span>-${formatCurrency(absDiff)} Wealth</span>
               <span>Conservative</span>
             </div>
           `;
@@ -2248,7 +2630,7 @@ function renderScenarioCards(scenarios, mode) {
         </div>
 
         <div class="scenario-metric-box">
-          <div class="scenario-metric-label">Accumulated Future Wealth (FV)</div>
+          <div class="scenario-metric-label">Accumulated Wealth (FV)</div>
           <div class="scenario-metric-value" style="color: var(--color-primary);">${formatCurrency(m.futureValue)}</div>
         </div>
 
@@ -2269,7 +2651,7 @@ function renderScenarioCards(scenarios, mode) {
           </div>
           <div class="scenario-prop-row">
             <span class="scenario-prop-label">Compound Growth:</span>
-            <span class="scenario-prop-val" style="color: var(--color-success); font-weight: 700;">${formatCurrency(m.totalGrowth)}</span>
+            <span class="scenario-prop-val" style="color: var(--color-success); font-weight: 700;">+${formatCurrency(m.totalGrowth)}</span>
           </div>
         </div>
       `;
@@ -2293,6 +2675,9 @@ function renderScenarioTable(scenarios, mode) {
     if (sc.isBase) {
       tr.style.background = 'var(--color-primary-light)';
       tr.style.fontWeight = '600';
+    } else if (sc.isCustom) {
+      tr.style.background = 'var(--bg-surface-subtle)';
+      tr.style.borderLeft = '4px solid var(--color-primary)';
     }
 
     if (mode === 'loan') {
@@ -2318,7 +2703,7 @@ function renderScenarioTable(scenarios, mode) {
         <td>${m.payoffYears} yrs</td>
         <td style="font-family: var(--font-mono); font-weight: 700;">${formatCurrency(m.actualPayment)}</td>
         <td style="font-family: var(--font-mono);">${formatCurrency(m.totalPrincipal)}</td>
-        <td style="font-family: var(--font-mono); color: var(--color-warning);">${formatCurrency(m.totalInterest)}</td>
+        <td style="font-family: var(--font-mono); color: var(--color-warning); font-weight: 600;">${formatCurrency(m.totalInterest)}</td>
         <td style="font-family: var(--font-mono);">${formatCurrency(m.totalPayments)}</td>
         <td style="font-family: var(--font-mono);">${varianceHtml}</td>
       `;
@@ -2343,10 +2728,10 @@ function renderScenarioTable(scenarios, mode) {
         </td>
         <td>${sc.rate}%</td>
         <td>${sc.term} yrs</td>
+        <td style="font-family: var(--font-mono); font-weight: 700;">${formatCurrency(sc.deposit || 0)}</td>
+        <td style="font-family: var(--font-mono);">${formatCurrency(m.totalPrincipal)}</td>
+        <td style="font-family: var(--font-mono); color: var(--color-success); font-weight: 700;">+${formatCurrency(m.totalGrowth)}</td>
         <td style="font-family: var(--font-mono); font-weight: 700; color: var(--color-primary);">${formatCurrency(m.futureValue)}</td>
-        <td style="font-family: var(--font-mono);">${formatCurrency(m.totalPrincipal)}</td>
-        <td style="font-family: var(--font-mono); color: var(--color-success);">${formatCurrency(m.totalGrowth)}</td>
-        <td style="font-family: var(--font-mono);">${formatCurrency(m.totalPrincipal)}</td>
         <td style="font-family: var(--font-mono);">${varianceHtml}</td>
       `;
     }
@@ -2359,15 +2744,18 @@ function renderScenarioTable(scenarios, mode) {
  * Generates 2D Sensitivity Matrix for Loans (Rates vs Terms)
  */
 function generateLoanSensitivityMatrix(principal, baseRate, baseTerm, freq = 12) {
-  // Select 5 term milestones
-  const terms = [10, 15, 20, 25, 30];
-  if (!terms.includes(Math.round(baseTerm))) {
-    terms.push(Math.round(baseTerm));
+  const bT = Math.max(1, Math.round(baseTerm));
+  let terms = [10, 15, 20, 25, 30];
+  if (!terms.includes(bT)) {
+    terms.push(bT);
     terms.sort((a, b) => a - b);
-    if (terms.length > 5) terms.pop();
+    if (terms.length > 6) {
+      terms.sort((a, b) => Math.abs(a - bT) - Math.abs(b - bT));
+      terms = terms.slice(0, 6).sort((a, b) => a - b);
+    }
   }
 
-  // Select 5 rate steps (-2%, -1%, Base, +1%, +2%)
+  // Rate steps (-2%, -1%, Base, +1%, +2%)
   const rates = [
     Math.max(0.5, +(baseRate - 2.0).toFixed(2)),
     Math.max(0.5, +(baseRate - 1.0).toFixed(2)),
@@ -2388,6 +2776,7 @@ function generateLoanSensitivityMatrix(principal, baseRate, baseTerm, freq = 12)
       if (metrics.totalInterest > maxInterest) maxInterest = metrics.totalInterest;
       row.cells.push({
         term: t,
+        rate: r,
         payment: metrics.scheduledPayment,
         totalInterest: metrics.totalInterest,
         isBase: (Math.abs(r - baseRate) < 0.05 && Math.abs(t - baseTerm) < 0.5)
@@ -2403,11 +2792,15 @@ function generateLoanSensitivityMatrix(principal, baseRate, baseTerm, freq = 12)
  * Generates 2D Sensitivity Matrix for Investments (Rates vs Horizons)
  */
 function generateInvestSensitivityMatrix(principal, baseRate, baseTerm, contribution = 0, freq = 12) {
-  const horizons = [5, 10, 15, 20, 25];
-  if (!horizons.includes(Math.round(baseTerm))) {
-    horizons.push(Math.round(baseTerm));
+  const bH = Math.max(1, Math.round(baseTerm));
+  let horizons = [5, 10, 15, 20, 25];
+  if (!horizons.includes(bH)) {
+    horizons.push(bH);
     horizons.sort((a, b) => a - b);
-    if (horizons.length > 5) horizons.pop();
+    if (horizons.length > 6) {
+      horizons.sort((a, b) => Math.abs(a - bH) - Math.abs(b - bH));
+      horizons = horizons.slice(0, 6).sort((a, b) => a - b);
+    }
   }
 
   const rates = [
@@ -2428,6 +2821,7 @@ function generateInvestSensitivityMatrix(principal, baseRate, baseTerm, contribu
       if (metrics.futureValue > maxFV) maxFV = metrics.futureValue;
       row.cells.push({
         horizon: h,
+        rate: r,
         futureValue: metrics.futureValue,
         growth: metrics.totalGrowth,
         isBase: (Math.abs(r - baseRate) < 0.05 && Math.abs(h - baseTerm) < 0.5)
@@ -2440,7 +2834,7 @@ function generateInvestSensitivityMatrix(principal, baseRate, baseTerm, contribu
 }
 
 /**
- * Renders the 2D Sensitivity Matrix heatmap table
+ * Renders the 2D Sensitivity Matrix heatmap table with interactive click inspection
  */
 function renderSensitivityMatrix(data, mode) {
   const thead = document.getElementById('sensitivity-thead');
@@ -2474,7 +2868,7 @@ function renderSensitivityMatrix(data, mode) {
 
         rowHtml += `
           <td>
-            <div class="${cellClass}" title="Term: ${cell.term} yrs | Rate: ${row.rate}% | Int: ${formatCurrency(cell.totalInterest)}">
+            <div class="${cellClass}" data-term="${cell.term}" data-rate="${row.rate}" data-payment="${cell.payment}" data-interest="${cell.totalInterest}" title="Click to inspect: Term ${cell.term} yrs | Rate ${row.rate}% | Int ${formatCurrency(cell.totalInterest)}">
               <span class="sensitivity-cell-pmt">${formatCurrency(cell.payment)}/mo</span>
               <span class="sensitivity-cell-sub">Int: ${formatCurrency(cell.totalInterest)}</span>
             </div>
@@ -2506,7 +2900,7 @@ function renderSensitivityMatrix(data, mode) {
 
         rowHtml += `
           <td>
-            <div class="${cellClass}" title="Horizon: ${cell.horizon} yrs | Return: ${row.rate}% | Growth: ${formatCurrency(cell.growth)}">
+            <div class="${cellClass}" data-horizon="${cell.horizon}" data-rate="${row.rate}" data-fv="${cell.futureValue}" data-growth="${cell.growth}" title="Click to inspect: Horizon ${cell.horizon} yrs | Return ${row.rate}% | Growth ${formatCurrency(cell.growth)}">
               <span class="sensitivity-cell-pmt" style="color: var(--color-primary);">${formatCurrency(cell.futureValue)}</span>
               <span class="sensitivity-cell-sub" style="color: var(--color-success);">+${formatCurrency(cell.growth)}</span>
             </div>
@@ -2518,6 +2912,87 @@ function renderSensitivityMatrix(data, mode) {
       tbody.appendChild(tr);
     });
   }
+
+  // Attach interactive click inspection listeners
+  tbody.querySelectorAll('.sensitivity-cell').forEach(cellEl => {
+    cellEl.addEventListener('click', () => {
+      tbody.querySelectorAll('.sensitivity-cell').forEach(c => c.classList.remove('cell-selected'));
+      cellEl.classList.add('cell-selected');
+
+      const inspectBar = document.getElementById('sensitivity-inspect-bar');
+      const inspectText = document.getElementById('sensitivity-inspect-text');
+      if (!inspectBar || !inspectText) return;
+
+      if (mode === 'loan') {
+        const t = parseFloat(cellEl.getAttribute('data-term'));
+        const r = parseFloat(cellEl.getAttribute('data-rate'));
+        const pmt = parseFloat(cellEl.getAttribute('data-payment'));
+        const interest = parseFloat(cellEl.getAttribute('data-interest'));
+        const base = AppState.lastScenarioData?.base;
+        const diffInt = base ? interest - base.totalInterest : 0;
+        const diffStr = diffInt === 0 ? 'Exact Baseline' : (diffInt < 0 ? `Saves ${formatCurrency(Math.abs(diffInt))}` : `Costs +${formatCurrency(diffInt)} more`);
+
+        AppState.inspectedSensitivityCell = { mode: 'loan', rate: r, term: t };
+        inspectText.innerHTML = `Inspected Cell: <strong>${r}% APR</strong> for <strong>${t} Years</strong> &rarr; Monthly EMI: <strong>${formatCurrency(pmt)}</strong> | Total Interest: <strong>${formatCurrency(interest)}</strong> (${diffStr})`;
+      } else {
+        const h = parseFloat(cellEl.getAttribute('data-horizon'));
+        const r = parseFloat(cellEl.getAttribute('data-rate'));
+        const fv = parseFloat(cellEl.getAttribute('data-fv'));
+        const growth = parseFloat(cellEl.getAttribute('data-growth'));
+        const base = AppState.lastScenarioData?.base;
+        const diffFv = base ? fv - base.futureValue : 0;
+        const diffStr = diffFv === 0 ? 'Exact Baseline' : (diffFv > 0 ? `+${formatCurrency(diffFv)} more wealth` : `-${formatCurrency(Math.abs(diffFv))} less wealth`);
+
+        AppState.inspectedSensitivityCell = { mode: 'invest', rate: r, horizon: h };
+        inspectText.innerHTML = `Inspected Cell: <strong>${r}% Return</strong> over <strong>${h} Years</strong> &rarr; Accumulated FV: <strong>${formatCurrency(fv)}</strong> | Growth: <strong>+${formatCurrency(growth)}</strong> (${diffStr})`;
+      }
+
+      inspectBar.style.display = 'flex';
+    });
+  });
+}
+
+/**
+ * Apply inspected cell parameters to baseline inputs or custom what-if inputs
+ */
+function applyInspectedSensitivityCell(target) {
+  const inspected = AppState.inspectedSensitivityCell;
+  if (!inspected) {
+    showNotification('Please click any cell in the Sensitivity Matrix first to inspect.', 'info');
+    return;
+  }
+
+  if (inspected.mode === 'loan') {
+    if (target === 'base') {
+      const elRate = document.getElementById('sc-loan-rate');
+      const elTerm = document.getElementById('sc-loan-term');
+      if (elRate) elRate.value = inspected.rate;
+      if (elTerm) elTerm.value = inspected.term;
+      showNotification(`Applied ${inspected.rate}% APR & ${inspected.term} Yrs as baseline loan! 📊`, 'success');
+    } else {
+      const elRate = document.getElementById('sc-custom-loan-rate');
+      const elTerm = document.getElementById('sc-custom-loan-term');
+      if (elRate) elRate.value = inspected.rate;
+      if (elTerm) elTerm.value = inspected.term;
+      showNotification(`Set ${inspected.rate}% APR & ${inspected.term} Yrs as Custom What-If Scenario! 🎯`, 'success');
+    }
+  } else {
+    if (target === 'base') {
+      const elRate = document.getElementById('sc-inv-rate');
+      const elTerm = document.getElementById('sc-inv-term');
+      if (elRate) elRate.value = inspected.rate;
+      if (elTerm) elTerm.value = inspected.horizon;
+      showNotification(`Applied ${inspected.rate}% Return & ${inspected.horizon} Yrs as baseline investment! 📈`, 'success');
+    } else {
+      const elRate = document.getElementById('sc-custom-inv-rate');
+      const elTerm = document.getElementById('sc-custom-inv-term');
+      if (elRate) elRate.value = inspected.rate;
+      if (elTerm) elTerm.value = inspected.horizon;
+      showNotification(`Set ${inspected.rate}% Return & ${inspected.horizon} Yrs as Custom What-If Target! 🎯`, 'success');
+    }
+  }
+
+  runScenarioAnalysis();
 }
 
 /**
@@ -2558,7 +3033,7 @@ function downloadScenarioCSV() {
   rows.push(`#`);
 
   if (isLoan) {
-    rows.push(['Scenario Name', 'Rate (%)', 'Term (Years)', 'Extra Prepay', 'Periodic Payment', 'Total Principal', 'Total Interest', 'Total Outflow', 'Variance vs Base'].join(','));
+    rows.push(['Scenario Name', 'Rate (%)', 'Term (Years)', 'Extra Prepay', 'Periodic Payment (EMI)', 'Total Principal', 'Total Interest', 'Total Outflow', 'Variance vs Base'].join(','));
     scenarios.forEach(sc => {
       const m = sc.metrics;
       const varText = sc.isBase ? '0.00' : (sc.deltaInterest < 0 ? `-${Math.abs(sc.deltaInterest).toFixed(2)}` : `+${sc.deltaInterest.toFixed(2)}`);
@@ -2575,7 +3050,7 @@ function downloadScenarioCSV() {
       ].join(','));
     });
   } else {
-    rows.push(['Scenario Name', 'Return Rate (%)', 'Horizon (Years)', 'Periodic Deposit', 'Future Value (FV)', 'Total Principal', 'Total Growth', 'Variance vs Base'].join(','));
+    rows.push(['Scenario Name', 'Return Rate (%)', 'Horizon (Years)', 'Periodic Deposit', 'Total Contributions', 'Total Growth (Earned)', 'Accumulated Wealth (FV)', 'Variance vs Base'].join(','));
     scenarios.forEach(sc => {
       const m = sc.metrics;
       const varText = sc.isBase ? '0.00' : (sc.deltaFV > 0 ? `+${sc.deltaFV.toFixed(2)}` : `-${Math.abs(sc.deltaFV).toFixed(2)}`);
@@ -2584,9 +3059,9 @@ function downloadScenarioCSV() {
         sc.rate.toFixed(2),
         sc.term.toFixed(1),
         (sc.deposit || 0).toFixed(2),
-        m.futureValue.toFixed(2),
         m.totalPrincipal.toFixed(2),
         m.totalGrowth.toFixed(2),
+        m.futureValue.toFixed(2),
         `"${varText}"`
       ].join(','));
     });
@@ -2644,7 +3119,7 @@ function downloadSensitivityCSV() {
 function downloadHistoryCSV() {
   const history = getHistory();
   if (history.length === 0) {
-    alert('No calculation history available to export.');
+    showNotification('No calculation history available to export.', 'info');
     return;
   }
 
@@ -2695,9 +3170,11 @@ window.runScenarioAnalysis = runScenarioAnalysis;
 window.setScenarioMode = setScenarioMode;
 window.resetScenarioForm = resetScenarioForm;
 window.importFromLoanTab = importFromLoanTab;
+window.importFromCITab = importFromCITab;
 window.gotoScenarioFromLoan = gotoScenarioFromLoan;
 window.gotoScenarioFromCI = gotoScenarioFromCI;
 window.applyScenarioPreset = applyScenarioPreset;
+window.applyInspectedSensitivityCell = applyInspectedSensitivityCell;
 window.copyScenarioTable = copyScenarioTable;
 window.downloadScenarioCSV = downloadScenarioCSV;
 window.downloadSensitivityCSV = downloadSensitivityCSV;

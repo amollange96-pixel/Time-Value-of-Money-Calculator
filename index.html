@@ -922,7 +922,7 @@
               <label for="sc-loan-amount">Base Principal (Loan Amount):</label>
               <div class="input-addon-wrapper">
                 <span class="input-addon currency-symbol">₹</span>
-                <input type="number" id="sc-loan-amount" class="form-control" placeholder="e.g. 500000" step="any" min="1" value="500000" required />
+                <input type="number" id="sc-loan-amount" class="form-control" placeholder="e.g. 500000" step="any" min="1" value="500000" />
               </div>
               <span class="form-hint">Baseline loan balance or borrowing amount.</span>
             </div>
@@ -930,7 +930,7 @@
             <div class="form-group">
               <label for="sc-loan-rate">Base Annual Interest Rate (%):</label>
               <div class="input-addon-wrapper">
-                <input type="number" id="sc-loan-rate" class="form-control" placeholder="e.g. 8.5" step="any" min="0" value="8.5" required />
+                <input type="number" id="sc-loan-rate" class="form-control" placeholder="e.g. 8.5" step="any" min="0" value="8.5" />
                 <span class="input-addon addon-right">%</span>
               </div>
               <span class="form-hint">Current annual interest rate.</span>
@@ -939,7 +939,7 @@
             <div class="form-group">
               <label for="sc-loan-term">Base Loan Term (Years):</label>
               <div class="input-addon-wrapper">
-                <input type="number" id="sc-loan-term" class="form-control" placeholder="e.g. 20" step="any" min="0.1" value="20" required />
+                <input type="number" id="sc-loan-term" class="form-control" placeholder="e.g. 20" step="any" min="0.1" value="20" />
                 <span class="input-addon addon-right">Yrs</span>
               </div>
               <span class="form-hint">Duration of repayment in years.</span>
@@ -963,6 +963,39 @@
                 <input type="number" id="sc-loan-prepay" class="form-control" placeholder="e.g. 5000" step="any" min="0" value="0" />
               </div>
               <span class="form-hint">Extra sum applied toward principal each period.</span>
+            </div>
+
+            <!-- Custom What-If Model for Loans -->
+            <div class="scenario-custom-box" style="grid-column: 1 / -1; background: var(--bg-surface-subtle); border: 1px dashed var(--border-color); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-top: 0.25rem;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.35rem;">
+                <strong style="font-size: 0.85rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.4rem;">
+                  <span>🎯</span> Custom What-If Model (Optional)
+                </strong>
+                <span style="font-size: 0.75rem; color: var(--text-muted);">Enter specific values to test an exact custom scenario side-by-side</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
+                <div>
+                  <label for="sc-custom-loan-rate" style="font-size: 0.78rem; font-weight: 600;">Custom Rate (%):</label>
+                  <div class="input-addon-wrapper">
+                    <input type="number" id="sc-custom-loan-rate" class="form-control" placeholder="e.g. 7.25" step="any" min="0" style="padding: 0.4rem 0.6rem; font-size: 0.85rem;" />
+                    <span class="input-addon addon-right">%</span>
+                  </div>
+                </div>
+                <div>
+                  <label for="sc-custom-loan-term" style="font-size: 0.78rem; font-weight: 600;">Custom Term (Yrs):</label>
+                  <div class="input-addon-wrapper">
+                    <input type="number" id="sc-custom-loan-term" class="form-control" placeholder="e.g. 15" step="any" min="0.1" style="padding: 0.4rem 0.6rem; font-size: 0.85rem;" />
+                    <span class="input-addon addon-right">Yrs</span>
+                  </div>
+                </div>
+                <div>
+                  <label for="sc-custom-loan-prepay" style="font-size: 0.78rem; font-weight: 600;">Custom Extra Prepay:</label>
+                  <div class="input-addon-wrapper">
+                    <span class="input-addon currency-symbol">₹</span>
+                    <input type="number" id="sc-custom-loan-prepay" class="form-control" placeholder="e.g. 3000" step="any" min="0" style="padding: 0.4rem 0.6rem; font-size: 0.85rem;" />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1013,21 +1046,56 @@
               </select>
               <span class="form-hint">Compounding and deposit frequency.</span>
             </div>
+
+            <!-- Custom What-If Model for Investment -->
+            <div class="scenario-custom-box" style="grid-column: 1 / -1; background: var(--bg-surface-subtle); border: 1px dashed var(--border-color); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-top: 0.25rem;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.35rem;">
+                <strong style="font-size: 0.85rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.4rem;">
+                  <span>🎯</span> Custom What-If Model (Optional)
+                </strong>
+                <span style="font-size: 0.75rem; color: var(--text-muted);">Enter specific values to test an exact investment target</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
+                <div>
+                  <label for="sc-custom-inv-rate" style="font-size: 0.78rem; font-weight: 600;">Custom Return Rate (%):</label>
+                  <div class="input-addon-wrapper">
+                    <input type="number" id="sc-custom-inv-rate" class="form-control" placeholder="e.g. 12" step="any" min="0" style="padding: 0.4rem 0.6rem; font-size: 0.85rem;" />
+                    <span class="input-addon addon-right">%</span>
+                  </div>
+                </div>
+                <div>
+                  <label for="sc-custom-inv-term" style="font-size: 0.78rem; font-weight: 600;">Custom Horizon (Yrs):</label>
+                  <div class="input-addon-wrapper">
+                    <input type="number" id="sc-custom-inv-term" class="form-control" placeholder="e.g. 20" step="any" min="0.1" style="padding: 0.4rem 0.6rem; font-size: 0.85rem;" />
+                    <span class="input-addon addon-right">Yrs</span>
+                  </div>
+                </div>
+                <div>
+                  <label for="sc-custom-inv-deposit" style="font-size: 0.78rem; font-weight: 600;">Custom Contribution:</label>
+                  <div class="input-addon-wrapper">
+                    <span class="input-addon currency-symbol">₹</span>
+                    <input type="number" id="sc-custom-inv-deposit" class="form-control" placeholder="e.g. 10000" step="any" min="0" style="padding: 0.4rem 0.6rem; font-size: 0.85rem;" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Preset Strategy Quick Chips -->
           <div class="scenario-presets-bar">
             <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Quick Presets:</span>
             <div id="loan-presets-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+              <button type="button" class="preset-chip active" data-preset="default">🌐 Overview (Default)</button>
               <button type="button" class="preset-chip" data-preset="rate-shock">⚡ Rate Shock (±1% & ±2%)</button>
-              <button type="button" class="preset-chip" data-preset="term-comparison">⏱ Term (15 vs 20 vs 30 Yrs)</button>
-              <button type="button" class="preset-chip" data-preset="extra-prepay">💰 Extra Prepayment (+15%)</button>
-              <button type="button" class="preset-chip" data-preset="shorten-term">🚀 Fast Payoff (-5 Yrs)</button>
+              <button type="button" class="preset-chip" data-preset="term-comparison">⏱ Term (15 vs 20 vs 25 vs 30 Yrs)</button>
+              <button type="button" class="preset-chip" data-preset="extra-prepay">💰 Extra Prepay (+10%, +20%, +30%)</button>
+              <button type="button" class="preset-chip" data-preset="shorten-term">🚀 Fast Payoff (-3, -5, -7 Yrs)</button>
             </div>
             <div id="invest-presets-group" style="display: none; gap: 0.4rem; flex-wrap: wrap;">
-              <button type="button" class="preset-chip" data-preset="market-returns">📊 Returns (6% vs 9% vs 12%)</button>
-              <button type="button" class="preset-chip" data-preset="time-horizons">⏳ Horizons (5 vs 10 vs 20 Yrs)</button>
-              <button type="button" class="preset-chip" data-preset="step-up-deposit">📈 Higher Deposits (+50%)</button>
+              <button type="button" class="preset-chip active" data-preset="default">🌐 Overview (Default)</button>
+              <button type="button" class="preset-chip" data-preset="market-returns">📊 Returns (6% vs 9% vs 12% vs 15%)</button>
+              <button type="button" class="preset-chip" data-preset="time-horizons">⏳ Horizons (5, 10, 15, 20, 25 Yrs)</button>
+              <button type="button" class="preset-chip" data-preset="step-up-deposit">📈 Higher Deposits (+25%, +50%, +100%)</button>
             </div>
           </div>
 
@@ -1039,8 +1107,11 @@
             <button type="button" id="btn-import-from-loan" class="btn btn-secondary" title="Sync numbers from Loan Calculator">
               <span>🔄</span> Import From Loan Tab
             </button>
+            <button type="button" id="btn-import-from-ci" class="btn btn-secondary" title="Sync numbers from Compound Interest / Investment" style="display: none;">
+              <span>🔄</span> Import From Compound Interest
+            </button>
             <button type="button" id="btn-reset-scenario" class="btn btn-secondary">
-              Reset
+              Reset Defaults
             </button>
           </div>
         </form>
@@ -1083,9 +1154,9 @@
                 <th style="text-align: left;">Scenario Name</th>
                 <th>Rate (%)</th>
                 <th>Term</th>
-                <th id="th-scenario-pmt">Periodic Payment</th>
-                <th>Total Principal</th>
-                <th>Total Interest</th>
+                <th id="th-scenario-pmt">Periodic Payment (EMI)</th>
+                <th id="th-scenario-principal">Total Principal</th>
+                <th id="th-scenario-interest">Total Interest</th>
                 <th id="th-scenario-total">Total Outflow</th>
                 <th>Variance vs Base</th>
               </tr>
@@ -1106,7 +1177,7 @@
               <span class="badge" style="font-size: 0.72rem; text-transform: uppercase; background: var(--color-success-bg); color: var(--color-success); border: 1px solid var(--color-success-border); padding: 0.15rem 0.5rem; border-radius: var(--radius-sm);">Interactive 2D Grid</span>
             </h3>
             <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
-              Matrix of <span id="matrix-type-desc">Monthly Installments and Total Interest</span> across varying interest rates and term lengths. Click any cell to inspect.
+              Matrix of <span id="matrix-type-desc">Monthly Installments and Total Interest</span> across varying interest rates and term lengths. Click any cell to inspect and load.
             </p>
           </div>
           <div class="amort-actions-group">
@@ -1117,6 +1188,22 @@
                 <line x1="12" y1="15" x2="12" y2="3"></line>
               </svg>
               <span>Download Matrix (CSV)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Interactive Sensitivity Inspector Bar -->
+        <div id="sensitivity-inspect-bar" style="display: none; margin: 1rem 0; padding: 0.75rem 1rem; background: var(--color-primary-light); border: 1px solid var(--color-primary-border); border-radius: var(--radius-md); align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-primary);">
+            <span style="font-size: 1.1rem;">🔍</span>
+            <span id="sensitivity-inspect-text" style="font-weight: 600;"></span>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button type="button" id="btn-apply-inspect-base" class="btn btn-primary" style="font-size: 0.78rem; padding: 0.35rem 0.75rem;">
+              Set as Baseline
+            </button>
+            <button type="button" id="btn-apply-inspect-custom" class="btn btn-secondary" style="font-size: 0.78rem; padding: 0.35rem 0.75rem;">
+              Set as Custom What-If
             </button>
           </div>
         </div>
